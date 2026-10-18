@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}エピソード | {{ APP_NAME }}{% endblock %}
+{% block page_title %}{% if is_new %}エピソードを追加{% else %}エピソードを編集{% endif %}{% endblock %}
+{% block back %}<a class="back" href="{% url 'profiles:episode_list' %}">‹ 一覧</a>{% endblock %}
+{% block content %}
+<div class="card">
+  <form method="post">{% csrf_token %}
+    {% include "_form.html" %}
+    <button class="btn">保存</button>
+  </form>
+</div>
+{% endblock %}

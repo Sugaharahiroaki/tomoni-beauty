@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}作成中 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}{{ memo.customer.name }} のカルテ{% endblock %}
+{% block back %}<a class="back" href="{% url 'core:today' %}">‹ 今日</a>{% endblock %}
+{% block content %}
+{% if memo.status == "failed" %}
+<div class="card danger">
+  <strong>作成できませんでした</strong>
+  <p class="tiny" style="margin:4px 0 0">{{ memo.error }}</p>
+</div>
+{% if memo.transcript %}<div class="card flat"><strong class="tiny">文字起こし</strong><p class="body-text tiny">{{ memo.transcript }}</p></div>{% endif %}
+<form method="post" action="{% url 'karte:memo_retry' memo.pk %}" class="card">{% csrf_token %}
+  <label for="text_input">内容をテキストで入力して再実行（任意）</label>
+  <textarea id="text_input" name="text_input" rows="4" placeholder="録音がうまく取れなかった場合はここに入力">{{ memo.text_input }}</textarea>
+  <button class="btn mt">もう一度作成する</button>
+</form>
+<a class="btn ghost" href="{% url 'karte:memo_new' %}?customer={{ memo.customer_id }}">録り直す</a>
+{% else %}
+<div class="card" data-poll-url="{% url 'karte:memo_status' memo.pk %}">
+  <div class="center" style="padding:16px 0">
+    <div class="big" style="font-size:2.4rem">✂️</div>
+    <strong data-poll-label>{{ memo.get_status_display }}</strong>
+    <p class="muted tiny">文字起こし → カルテ → LINE文面の順に作っています。30秒〜1分ほどお待ちください。このまま他の画面に移っても、完了すると「今日」の一覧に表示されます。</p>
+  </div>
+  <div class="progress"><div data-poll-bar style="width:{{ memo.progress_percent }}%"></div></div>
+  <div class="card danger tiny mt" data-poll-error style="display:none"></div>
+</div>
+{% if memo.text_input %}<div class="card flat"><strong class="tiny">入力内容</strong><p class="body-text tiny">{{ memo.text_input }}</p></div>{% endif %}
+<a class="btn ghost" href="{% url 'core:today' %}">今日の画面へ戻る</a>
+{% endif %}
+{% endblock %}

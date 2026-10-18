@@ -1,0 +1,66 @@
+{% extends "base.html" %}{% load static %}
+{% block title %}Q{{ question.order }} | {{ APP_NAME }}{% endblock %}
+{% block page_title %}質問 {{ question.order }} / {{ total }}{% endblock %}
+{% block back %}<a class="back" href="{% url 'profiles:interview' %}">‹ 一覧</a>{% endblock %}
+{% block topaction %}{% if next_question %}<a class="action" href="{% url 'profiles:interview_question' next_question.order %}">スキップ ›</a>{% else %}<span class="action"></span>{% endif %}{% endblock %}
+{% block content %}
+<div class="card accent">
+  <h2 style="margin:0">{{ question.text }}</h2>
+  {% if question.hint %}<p class="muted tiny" style="margin:6px 0 0">💡 {{ question.hint }}</p>{% endif %}
+</div>
+
+<div class="recorder card">
+  <button type="button" class="rec-btn" id="rec-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span class="label">録音する</span></button>
+  <div class="timer" id="rec-timer">0:00</div>
+  <div class="muted tiny" id="rec-status">ボタンを押して、思いついたまま話してください（最長5分）</div>
+  <div id="upload-area" style="display:none" class="mt">
+    <button type="button" class="btn" id="upload-btn">この回答を保存して次へ</button>
+    <button type="button" class="btn ghost mt" id="rerecord-btn">録り直す</button>
+  </div>
+</div>
+
+<details {% if answer and answer.transcript %}open{% endif %}>
+  <summary>テキストで答える／文字起こしを直す</summary>
+  <form method="post" id="text-form" class="mt">{% csrf_token %}
+    {{ form.transcript }}
+    {% if answer and answer.status == "failed" %}<p class="muted tiny" style="color:var(--danger)">文字起こしに失敗しました: {{ answer.error }}</p>{% endif %}
+    <button class="btn secondary mt">テキストで保存して次へ</button>
+  </form>
+</details>
+
+<div class="btn-row mt">
+  {% if prev_question %}<a class="btn ghost" href="{% url 'profiles:interview_question' prev_question.order %}">‹ 前の質問</a>{% endif %}
+  {% if next_question %}<a class="btn ghost" href="{% url 'profiles:interview_question' next_question.order %}">次の質問 ›</a>{% else %}<a class="btn ghost" href="{% url 'profiles:interview' %}">一覧へ</a>{% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'js/recorder.js' %}"></script>
+<script>
+(function(){
+  let blob = null, filename = "", duration = 0;
+  const area = document.getElementById("upload-area");
+  TOMONI.initRecorder({
+    button: document.getElementById("rec-btn"),
+    timer: document.getElementById("rec-timer"),
+    status: document.getElementById("rec-status"),
+    onBlob: (b, f, d) => { blob = b; filename = f; duration = d; area.style.display = ""; },
+  });
+  document.getElementById("rerecord-btn").addEventListener("click", () => { blob = null; area.style.display = "none"; });
+  document.getElementById("upload-btn").addEventListener("click", async () => {
+    if (!blob) return;
+    const btn = document.getElementById("upload-btn");
+    btn.disabled = true; btn.textContent = "アップロード中…";
+    const fd = new FormData();
+    fd.append("audio", blob, filename);
+    fd.append("duration_seconds", duration);
+    try {
+      const data = await TOMONI.uploadForm(location.pathname, fd);
+      TOMONI.toast("保存しました。文字起こしは数十秒で完了します", "success");
+      window.location.href = data.next;
+    } catch (e) {
+      TOMONI.toast(e.message, "error"); btn.disabled = false; btn.textContent = "この回答を保存して次へ";
+    }
+  });
+})();
+</script>
+{% endblock %}

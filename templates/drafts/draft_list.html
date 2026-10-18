@@ -1,0 +1,22 @@
+{% extends "base.html" %}{% load tomoni %}
+{% block title %}LINE文面 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}LINE文面の下書き{% endblock %}
+{% block back %}<a class="back" href="{% url 'core:today' %}">‹ 今日</a>{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="section-title"><h2>未送信</h2></div>
+  {% for d in pending %}
+  <a class="list-item" href="{% url 'drafts:detail' d.pk %}">
+    <span class="avatar">{{ d.customer.name|initial }}</span>
+    <span class="grow"><strong>{{ d.customer.name }}</strong> <span class="badge accent">{{ d.get_kind_display }}</span>{% if d.scheduled_for %} <span class="muted tiny">{{ d.scheduled_for|jadate }}（{{ d.scheduled_for|days_until }}）</span>{% endif %}
+      <div class="meta">{{ d.body|truncatechars:60 }}</div></span><span class="chev">›</span>
+  </a>
+  {% empty %}<div class="card flat muted">未送信の文面はありません</div>{% endfor %}
+</section>
+<section class="section">
+  <div class="section-title"><h2>送信済み</h2></div>
+  {% for d in sent %}
+  <a class="list-item" href="{% url 'drafts:detail' d.pk %}"><span class="grow">{{ d.customer.name }} <span class="badge ok">{{ d.get_kind_display }}</span><div class="meta">{{ d.sent_at|jadatetime }}</div></span><span class="chev">›</span></a>
+  {% empty %}<div class="card flat muted">まだありません</div>{% endfor %}
+</section>
+{% endblock %}

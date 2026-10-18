@@ -1,0 +1,72 @@
+{% extends "base.html" %}{% load tomoni %}
+{% block title %}SNS投稿 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}SNS投稿{% endblock %}
+{% block back %}<a class="back" href="{% url 'drafts:sns_list' %}">‹ 一覧</a>{% endblock %}
+{% block content %}
+{% if post.is_processing %}
+<div class="card" data-poll-url="{% url 'drafts:sns_status' post.pk %}">
+  <div class="center" style="padding:16px 0"><div style="font-size:2.4rem">✨</div><strong>投稿文を作っています</strong><p class="muted tiny">悩みの一般化 → 投稿文 → 個人情報チェック の順に進めています（30秒〜1分）。</p></div>
+  <div class="progress"><div style="width:50%"></div></div>
+</div>
+{% elif post.status == "failed" %}
+<div class="card danger"><strong>作成できませんでした</strong><p class="tiny">{{ post.error }}</p></div>
+<form method="post" action="{% url 'drafts:sns_regenerate' post.pk %}">{% csrf_token %}<button class="btn">もう一度作る</button></form>
+{% else %}
+
+<div class="card flat tiny">
+  <span class="badge {{ post.status|badge_class }}">{{ post.get_status_display }}</span> {{ post.get_purpose_display }}
+  {% if post.customer %} ・ {{ post.customer.name }}{% endif %}
+  {% if post.episode %} ・ エピソード「{{ post.episode.title }}」{% endif %}
+  {% if post.uses_story %} ・ ストーリー使用（一般化済み）{% else %} ・ 施術内容のみ{% endif %}
+</div>
+
+{% if post.pii_errors %}
+<div class="card danger">
+  <strong>個人情報の可能性がある箇所があります</strong>
+  <ul class="tiny" style="margin:4px 0 0;padding-left:1.1rem">{% for f in post.pii_errors %}<li>「{{ f.text }}」{% if f.reason %} — {{ f.reason }}{% endif %}（{{ f.field }}）</li>{% endfor %}</ul>
+  <p class="tiny" style="margin:6px 0 0">本文を修正して保存すると再チェックします。修正せずに投稿済みにはできません。</p>
+</div>
+{% elif post.pii_warnings %}
+<div class="card warn">
+  <strong>念のため確認してください</strong>
+  <ul class="tiny" style="margin:4px 0 0;padding-left:1.1rem">{% for f in post.pii_warnings %}<li>「{{ f.text }}」{% if f.reason %} — {{ f.reason }}{% endif %}</li>{% endfor %}</ul>
+</div>
+{% else %}
+<div class="card ok tiny">✅ 個人情報チェックを通過しました{% if post.pii_check.llm_checked %}（AIによる二重チェック済み）{% endif %}</div>
+{% endif %}
+
+{% if post.photos.exists %}<div class="photo-grid mb">{% for p in post.photos.all %}<div class="photo"><img src="{{ p.image.url }}" alt=""></div>{% endfor %}</div>{% endif %}
+
+<form method="post" action="{% url 'drafts:sns_update' post.pk %}">{% csrf_token %}
+  <section class="section">
+    <div class="section-title"><h2>フィード投稿</h2><button type="button" class="btn sm secondary" data-copy-source="#feed_text">コピー</button></div>
+    <textarea name="feed_text" id="feed_text" rows="10">{{ post.feed_text }}</textarea>
+  </section>
+  <section class="section">
+    <div class="section-title"><h2>ハッシュタグ</h2><button type="button" class="btn sm secondary" data-copy-source="#hashtags">コピー</button></div>
+    <textarea name="hashtags" id="hashtags" rows="3">{{ post.hashtags_text }}</textarea>
+  </section>
+  <section class="section">
+    <div class="section-title"><h2>ストーリーズ</h2><button type="button" class="btn sm secondary" data-copy-source="#story_text">コピー</button></div>
+    <textarea name="story_text" id="story_text" rows="2">{{ post.story_text }}</textarea>
+  </section>
+  <section class="section">
+    <div class="section-title"><h2>リール台本</h2><button type="button" class="btn sm secondary" data-copy-source="#reel_script">コピー</button></div>
+    <textarea name="reel_script" id="reel_script" rows="7">{{ post.reel_script }}</textarea>
+  </section>
+  <button class="btn secondary">保存して再チェック</button>
+</form>
+
+{% if post.generalized_story %}<details class="mt"><summary class="tiny">使った「悩みと結果」（一般化後）</summary><p class="tiny body-text">悩み: {{ post.generalized_story.concern }}<br>結果: {{ post.generalized_story.result }}</p></details>{% endif %}
+
+<div class="btn-group-vertical mt">
+  {% if post.status != "posted" %}
+  <form method="post" action="{% url 'drafts:sns_mark_posted' post.pk %}">{% csrf_token %}<button class="btn" {% if post.pii_errors %}disabled{% endif %}>投稿した（記録する）</button></form>
+  {% endif %}
+  <div class="btn-row">
+    <form method="post" action="{% url 'drafts:sns_regenerate' post.pk %}">{% csrf_token %}<button class="btn ghost">作り直す</button></form>
+    <form method="post" action="{% url 'drafts:sns_discard' post.pk %}" data-confirm="この投稿案を破棄しますか？">{% csrf_token %}<button class="btn ghost" style="color:var(--danger)">破棄</button></form>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,105 @@
+{% extends "base.html" %}{% load static tomoni %}
+{% block title %}施術メモを録音 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}施術メモ{% endblock %}
+{% block back %}<a class="back" href="{% url 'core:today' %}">‹ 今日</a>{% endblock %}
+{% block content %}
+<section class="section" id="customer-section">
+  <h2>1. お客様</h2>
+  <div id="customer-chosen" class="card accent" {% if not customer %}style="display:none"{% endif %}>
+    <div class="row between"><span><strong id="customer-chosen-name">{{ customer.name }}</strong></span><button type="button" class="linklike" id="customer-change">変更</button></div>
+  </div>
+  <div id="customer-picker" {% if customer %}style="display:none"{% endif %}>
+    <input type="search" id="customer-q" placeholder="お名前で検索" autocomplete="off">
+    <div id="customer-results" class="mt">
+      {% for c in recent_customers %}<button type="button" class="list-item" style="width:100%;text-align:left" data-id="{{ c.id }}" data-name="{{ c.name }}"><span class="avatar">{{ c.name|initial }}</span><span class="grow">{{ c.name }}</span></button>{% endfor %}
+    </div>
+    <details class="mt"><summary>初めてのお客様を登録して続ける</summary>
+      <input type="text" id="new-customer-name" placeholder="お名前（例: 山田 花子）" class="mt">
+      <p class="muted tiny">掲載の同意などは後からカルテ画面で設定できます。</p>
+    </details>
+  </div>
+</section>
+
+<section class="section">
+  <h2>2. 録音（30秒でOK）</h2>
+  <div class="recorder card">
+    <button type="button" class="rec-btn" id="rec-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span class="label">録音する</span></button>
+    <div class="timer" id="rec-timer">0:00</div>
+    <div class="muted tiny" id="rec-status">話す内容の例は下にあります</div>
+    <div class="hint-box mt">
+      「今日は落ち着いたブラウン。色落ちが気になるとのこと。次回は6週間後を目安に相談。写真はSNS掲載OK、顔出しNG」<br>
+      <span class="tiny">→ 施術内容 / 悩み / 次回の目安 / 掲載OK・NG を入れると精度が上がります</span>
+    </div>
+  </div>
+  <details><summary>テキストで入力する</summary><textarea id="text-input" rows="4" placeholder="録音できないときはここに入力" class="mt"></textarea></details>
+</section>
+
+<section class="section">
+  <div class="row between"><label for="visited-on" style="margin:0">来店日</label><input type="date" id="visited-on" value="{{ today|date:'Y-m-d' }}" style="width:auto"></div>
+</section>
+
+<div class="sticky-actions">
+  <button type="button" class="btn" id="submit-btn" disabled>カルテと文面を作る</button>
+  <div class="center muted tiny mt" id="submit-hint">お客様を選んで、録音またはテキストを入力してください</div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'js/recorder.js' %}"></script>
+<script>
+(function(){
+  let customerId = "{{ customer.pk|default:'' }}";
+  let blob = null, filename = "", duration = 0;
+  const visitId = "{{ visit.pk|default:'' }}";
+  const chosen = document.getElementById("customer-chosen"), chosenName = document.getElementById("customer-chosen-name");
+  const picker = document.getElementById("customer-picker"), results = document.getElementById("customer-results");
+  const q = document.getElementById("customer-q"), newName = document.getElementById("new-customer-name");
+  const textInput = document.getElementById("text-input");
+  const submitBtn = document.getElementById("submit-btn"), hint = document.getElementById("submit-hint");
+
+  function refresh() {
+    const hasCustomer = !!customerId || !!newName.value.trim();
+    const hasContent = !!blob || !!textInput.value.trim();
+    submitBtn.disabled = !(hasCustomer && hasContent);
+    hint.textContent = !hasCustomer ? "お客様を選んでください" : (!hasContent ? "録音またはテキストを入力してください" : "準備OK。ボタンを押すとカルテとLINE文面を作ります");
+  }
+  function choose(id, name) { customerId = id; chosenName.textContent = name; chosen.style.display = ""; picker.style.display = "none"; refresh(); }
+  results.addEventListener("click", (e) => { const b = e.target.closest("[data-id]"); if (b) choose(b.dataset.id, b.dataset.name); });
+  document.getElementById("customer-change").addEventListener("click", () => { customerId = ""; chosen.style.display = "none"; picker.style.display = ""; refresh(); });
+  newName.addEventListener("input", refresh);
+  textInput.addEventListener("input", refresh);
+  let t = null;
+  q.addEventListener("input", () => {
+    clearTimeout(t);
+    t = setTimeout(async () => {
+      const r = await fetch("{% url 'customers:search_json' %}?q=" + encodeURIComponent(q.value), { headers: { "X-Requested-With": "fetch" } });
+      const data = await r.json();
+      results.innerHTML = data.results.map((c) => `<button type="button" class="list-item" style="width:100%;text-align:left" data-id="${c.id}" data-name="${c.name.replace(/"/g, "&quot;")}"><span class="avatar">${c.name.slice(0,1)}</span><span class="grow">${c.name}${c.kana ? ` <span class="muted tiny">${c.kana}</span>` : ""}</span></button>`).join("") || '<div class="muted tiny">見つかりません。下から新規登録できます。</div>';
+    }, 250);
+  });
+
+  TOMONI.initRecorder({
+    button: document.getElementById("rec-btn"), timer: document.getElementById("rec-timer"), status: document.getElementById("rec-status"),
+    onBlob: (b, f, d) => { blob = b; filename = f; duration = d; refresh(); },
+    onUnsupported: () => { document.querySelector("details").open = true; },
+  });
+
+  submitBtn.addEventListener("click", async () => {
+    submitBtn.disabled = true; submitBtn.textContent = "送信中…";
+    const fd = new FormData();
+    if (customerId) fd.append("customer_id", customerId); else fd.append("new_customer_name", newName.value.trim());
+    if (blob) fd.append("audio", blob, filename);
+    fd.append("text_input", textInput.value.trim());
+    fd.append("duration_seconds", duration);
+    fd.append("visited_on", document.getElementById("visited-on").value);
+    if (visitId) fd.append("visit_id", visitId);
+    try {
+      const data = await TOMONI.uploadForm("{% url 'karte:memo_create' %}", fd);
+      window.location.href = data.redirect;
+    } catch (e) {
+      TOMONI.toast(e.message, "error"); submitBtn.disabled = false; submitBtn.textContent = "カルテと文面を作る";
+    }
+  });
+  refresh();
+})();
+</script>
+{% endblock %}

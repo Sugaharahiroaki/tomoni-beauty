@@ -1,0 +1,64 @@
+{% extends "base.html" %}{% load tomoni humanize %}
+{% block title %}返信 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}{{ customer.name }} への返信{% endblock %}
+{% block back %}<a class="back" href="{% url 'lineapp:inbox' %}">‹ LINE</a>{% endblock %}
+{% block topaction %}<a class="action" href="{% url 'customers:detail' customer.pk %}">お客様</a>{% endblock %}
+{% block content %}
+<div class="card line" style="background:var(--line-soft);border-color:#9fd3b4">
+  <div class="row between tiny muted"><span>{{ customer.name }}{% if customer.needs_review %} <span class="badge warn">要確認</span>{% endif %}</span><span>{{ inbound.received_at|jadatetime }}</span></div>
+  <p class="body-text" style="margin:6px 0 0">{{ inbound.display_text }}</p>
+</div>
+{% if inbound.intent or inbound.note_for_stylist %}
+<div class="tiny muted mb">{% if inbound.intent %}<span class="badge">{{ inbound.intent }}</span>{% endif %}{% if inbound.needs_attention %} <span class="badge danger">要確認</span>{% endif %} {{ inbound.note_for_stylist }}</div>
+{% endif %}
+
+{% if inbound.replied_at %}
+<div class="card ok tiny">返信済み（{{ inbound.reply_route|route_label }} ・ {{ inbound.replied_at|jadatetime }}）</div>
+{% elif inbound.ignored %}
+<div class="card flat tiny">対応不要にしました</div>
+{% endif %}
+
+{% if not inbound.replied_at %}
+  {% if not draft and inbound.suggestion_status == "pending" %}
+  <div class="card" data-poll-url="{% url 'lineapp:inbound_status' inbound.pk %}"><div class="center"><strong>返信案を作成中…</strong><p class="muted tiny">数十秒お待ちください。待たずに下の欄に直接入力して送ることもできます。</p></div></div>
+  {% elif inbound.suggestion_status == "failed" and not draft %}
+  <div class="card danger tiny">返信案を作れませんでした: {{ inbound.note_for_stylist }} <form method="post" action="{% url 'lineapp:inbound_regenerate' inbound.pk %}" style="display:inline">{% csrf_token %}<button class="linklike">再試行</button></form></div>
+  {% endif %}
+
+  <form method="post" action="{% url 'lineapp:inbound_send' inbound.pk %}" id="reply-form">{% csrf_token %}
+    <textarea name="body" id="reply-body" rows="7" placeholder="返信を入力">{% if draft %}{{ draft.body }}{% endif %}</textarea>
+    {% if not customer.can_contact %}
+      <div class="card danger tiny mt">{{ customer.contact_blocked_reason }}。送信できません。</div>
+    {% else %}
+    <div class="btn-group-vertical mt">
+      {% if token_valid %}
+      <button class="btn line" name="route" value="reply" id="reply-btn">⚡ Reply APIで返信（無料・残り <span class="countdown" data-countdown="{{ token_seconds_left }}" data-countdown-disable="#reply-btn" data-countdown-show="#copy-route">{{ token_seconds_left }}秒</span>）</button>
+      {% endif %}
+      <div id="copy-route" {% if token_valid %}style="display:none"{% endif %}>
+        {% if not token_valid %}<p class="muted tiny">Reply返信の期限（受信から1分）が過ぎているため、コピーしてLINEチャットから送ります（こちらも無料）。</p>{% endif %}
+        {% if chat_url %}
+          <button type="button" class="btn line" data-copy-source="#reply-body" data-open-url="{{ chat_url }}" data-after-copy="#sent-confirm">📋 コピーしてLINEで開く</button>
+        {% else %}
+          <button type="button" class="btn line" data-copy-source="#reply-body" data-after-copy="#sent-confirm">📋 コピーする</button>
+        {% endif %}
+        <div id="sent-confirm" class="card ok mt" style="display:none"><strong class="tiny">LINEで送りましたか？</strong><button class="btn mt" name="route" value="copy">送った（記録する）</button></div>
+      </div>
+      {% if channel and channel.push_enabled and customer.line_user_id %}
+      <button class="btn secondary" name="route" value="push" onclick="return confirm('Push送信は通数を1通消費します。送信しますか？')" {% if push_quota and push_quota.would_exceed %}disabled{% endif %}>Pushで送信（1通消費{% if push_quota and push_quota.remaining != None %}・残り{{ push_quota.remaining }}{% endif %}）</button>
+      {% endif %}
+    </div>
+    {% endif %}
+  </form>
+  <div class="row mt">
+    <form method="post" action="{% url 'lineapp:inbound_regenerate' inbound.pk %}">{% csrf_token %}<button class="btn sm ghost">返信案を作り直す</button></form>
+    <form method="post" action="{% url 'lineapp:inbound_ignore' inbound.pk %}">{% csrf_token %}<button class="btn sm ghost">対応不要</button></form>
+  </div>
+{% endif %}
+
+{% if history or sent_history %}
+<details class="mt"><summary class="tiny">このお客様との最近のやりとり</summary>
+  {% for m in sent_history %}<div class="card flat tiny"><span class="muted">→ {{ m.sent_at|jadatetime }} {{ m.route|route_label }}</span><p class="body-text" style="margin:2px 0 0">{{ m.body|truncatechars:120 }}</p></div>{% endfor %}
+  {% for m in history %}<div class="card flat tiny"><span class="muted">← {{ m.received_at|jadatetime }}</span><p class="body-text" style="margin:2px 0 0">{{ m.display_text|truncatechars:120 }}</p></div>{% endfor %}
+</details>
+{% endif %}
+{% endblock %}

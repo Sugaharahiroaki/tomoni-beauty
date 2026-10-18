@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}予約 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}{% if is_new %}予約を登録{% else %}予約を編集{% endif %}{% endblock %}
+{% block back %}<a class="back" href="{% url 'visits:reservation_list' %}">‹ 予約</a>{% endblock %}
+{% block content %}
+<div class="card">
+  <form method="post">{% csrf_token %}
+    {% include "_form.html" %}
+    <button class="btn">保存</button>
+  </form>
+</div>
+{% if not is_new %}
+<div class="btn-row mt">
+  <form method="post" action="{% url 'visits:reservation_cancel' reservation.pk %}" data-confirm="キャンセルにしますか？">{% csrf_token %}<button class="btn ghost">キャンセル</button></form>
+  <form method="post" action="{% url 'visits:reservation_cancel' reservation.pk %}" data-confirm="無断キャンセルとして記録しますか？">{% csrf_token %}<input type="hidden" name="no_show" value="1"><button class="btn ghost">無断キャンセル</button></form>
+</div>
+{% endif %}
+{% endblock %}

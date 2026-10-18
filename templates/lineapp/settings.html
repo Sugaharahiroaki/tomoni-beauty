@@ -1,0 +1,46 @@
+{% extends "base.html" %}{% load tomoni %}
+{% block title %}LINE連携 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}LINE公式アカウント連携{% endblock %}
+{% block back %}<a class="back" href="{% url 'core:settings_menu' %}">‹ メニュー</a>{% endblock %}
+{% block content %}
+{% if channel %}
+<div class="card {% if channel.is_verified %}ok{% else %}warn{% endif %}">
+  <div class="row between">
+    <div><strong>{% if channel.is_verified %}接続済み{% else %}未確認{% endif %}</strong>{% if channel.display_name %} ・ {{ channel.display_name }} {{ channel.basic_id }}{% endif %}
+      {% if channel.last_error %}<div class="tiny" style="color:var(--danger)">{{ channel.last_error }}</div>{% endif %}</div>
+    <form method="post" action="{% url 'lineapp:verify' %}">{% csrf_token %}<button class="btn sm secondary">接続を確認</button></form>
+  </div>
+</div>
+<div class="card">
+  <strong class="tiny">Webhook URL（LINE Developers の Messaging API設定に貼り付け、「Webhookの利用」をオン）</strong>
+  <textarea id="webhook-url" rows="2" readonly style="font-size:0.8rem">{{ channel.webhook_url }}</textarea>
+  <button type="button" class="btn sm secondary mt" data-copy-source="#webhook-url">URLをコピー</button>
+  <p class="muted tiny mt">同じ画面で「応答メッセージ」はオフ、「あいさつメッセージ」はお好みで。LINE Official Account Manager の設定で「チャット」モードを使うと、1対1トークで無料送信できます。</p>
+</div>
+<div class="card">
+  <div class="row between"><strong>今月の通数</strong><form method="post" action="{% url 'lineapp:refresh_quota' %}">{% csrf_token %}<button class="btn sm ghost">更新</button></form></div>
+  {% if quota %}
+    <div class="progress {% if quota.warn %}danger{% endif %} mt"><div style="width:{{ quota.percent }}%"></div></div>
+    <p class="tiny" style="margin:6px 0 0">{{ quota.used }} / {{ quota.limit|default:"上限なし" }} 通{% if quota.remaining != None %}（残り {{ quota.remaining }} 通）{% endif %} ・ 取得 {{ quota.fetched_at|jadatetime }}</p>
+    <p class="muted tiny">LINE公式アカウントマネージャーから配信した分も含む概算です。無料プランは月200通。1対1チャット・Reply返信・あいさつ・応答メッセージは消費しません。</p>
+  {% else %}<p class="muted tiny mt">「接続を確認」または「更新」で取得します</p>{% endif %}
+</div>
+{% endif %}
+
+<div class="card">
+  <form method="post">{% csrf_token %}
+    {% include "_form.html" %}
+    <button class="btn">保存</button>
+  </form>
+</div>
+
+<details class="mt"><summary>設定手順</summary>
+  <ol class="tiny muted" style="padding-left:1.2rem">
+    <li><a href="https://developers.line.biz/console/" target="_blank" rel="noopener">LINE Developers</a> でプロバイダーを作り、既存のLINE公式アカウントに「Messaging API」を有効化（LINE Official Account Manager › 設定 › Messaging API からも可）</li>
+    <li>チャネル基本設定の「チャネルID」「チャネルシークレット」を上に入力</li>
+    <li>Messaging API設定タブで「チャネルアクセストークン（長期）」を発行して入力</li>
+    <li>保存 → 上に表示される Webhook URL を Messaging API設定の Webhook URL に貼り、「Webhookの利用」をオン →「検証」</li>
+    <li>このアプリで「接続を確認」</li>
+  </ol>
+</details>
+{% endblock %}

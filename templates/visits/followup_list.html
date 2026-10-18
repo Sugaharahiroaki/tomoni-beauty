@@ -1,0 +1,31 @@
+{% extends "base.html" %}{% load tomoni %}
+{% block title %}フォロー予定 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}フォロー予定{% endblock %}
+{% block back %}<a class="back" href="{% url 'core:settings_menu' %}">‹ メニュー</a>{% endblock %}
+{% block content %}
+<p class="muted tiny">カルテの「次回来店の目安」から、目安日の{{ stylist.follow_up_lead_days }}日前に次回案内を送る予定を自動で作ります。予約済み・連絡NG・直近に送信済みのお客様には作りません。</p>
+<section class="section">
+  <div class="section-title"><h2>今日まで</h2></div>
+  {% for fu in due %}
+  <div class="list-item">
+    <span class="avatar">{{ fu.customer.name|initial }}</span>
+    <span class="grow"><strong>{{ fu.customer.name }}</strong><div class="meta">{{ fu.get_kind_display }} ・ {{ fu.due_date|jadate }}（{{ fu.due_date|days_until }}）</div></span>
+    {% if fu.draft and fu.draft.is_sendable_status %}<a class="btn sm" href="{% url 'drafts:detail' fu.draft.pk %}">文面</a>
+    {% else %}<form method="post" action="{% url 'visits:followup_prepare' fu.pk %}">{% csrf_token %}<button class="btn sm secondary">文面を作る</button></form>{% endif %}
+    <form method="post" action="{% url 'visits:followup_skip' fu.pk %}">{% csrf_token %}<button class="btn sm ghost">見送り</button></form>
+  </div>
+  {% empty %}<div class="card flat muted">今日送るフォローはありません</div>{% endfor %}
+</section>
+<section class="section">
+  <div class="section-title"><h2>これから</h2></div>
+  {% for fu in upcoming %}
+  <div class="list-item"><span class="grow">{{ fu.customer.name }}<div class="meta">{{ fu.get_kind_display }} ・ {{ fu.due_date|jadate }}（{{ fu.due_date|days_until }}）</div></span>{% if fu.draft %}<a class="btn sm ghost" href="{% url 'drafts:detail' fu.draft.pk %}">文面</a>{% endif %}</div>
+  {% empty %}<div class="card flat muted">予定はありません</div>{% endfor %}
+</section>
+{% if done %}
+<section class="section">
+  <div class="section-title"><h2>完了・見送り</h2></div>
+  {% for fu in done %}<div class="list-item"><span class="grow">{{ fu.customer.name }}<div class="meta"><span class="badge {{ fu.status|badge_class }}">{{ fu.get_status_display }}</span> {{ fu.due_date|jadate }}{% if fu.skip_reason %} ・ {{ fu.skip_reason }}{% endif %}</div></span></div>{% endfor %}
+</section>
+{% endif %}
+{% endblock %}

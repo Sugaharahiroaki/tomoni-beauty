@@ -1,0 +1,18 @@
+[Unit]
+Description=TOMONI Beauty web (gunicorn)
+After=network.target postgresql.service
+
+[Service]
+User=tomoni
+Group=tomoni
+WorkingDirectory=/srv/tomoni-beauty
+EnvironmentFile=/srv/tomoni-beauty/.env
+ExecStart=/srv/tomoni-beauty/.venv/bin/gunicorn config.wsgi:application \
+  --bind 127.0.0.1:8000 \
+  --workers 2 --threads 4 --timeout 120 \
+  --access-logfile - --error-logfile -
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

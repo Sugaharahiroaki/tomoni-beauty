@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}文体設定 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}文体設定{% endblock %}
+{% block back %}<a class="back" href="{% url 'core:settings_menu' %}">‹ メニュー</a>{% endblock %}
+{% block content %}
+<p class="muted">LINEの文面とSNS投稿は、ここで決めた文体で生成されます。インタビューから自動で推定された内容も編集できます。</p>
+<div class="card">
+  <form method="post">{% csrf_token %}
+    {% include "_form.html" %}
+    <button class="btn">保存</button>
+  </form>
+</div>
+{% endblock %}

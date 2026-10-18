@@ -1,0 +1,21 @@
+{% extends "base.html" %}{% load tomoni %}
+{% block title %}SNS投稿 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}SNS投稿{% endblock %}
+{% block back %}<a class="back" href="{% url 'core:settings_menu' %}">‹ メニュー</a>{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="section-title"><h2>投稿</h2></div>
+  {% for p in posts %}
+  <a class="list-item" href="{% url 'drafts:sns_detail' p.pk %}">
+    <span class="grow"><span class="badge {{ p.status|badge_class }}">{{ p.get_status_display }}</span> {{ p.get_purpose_display }}{% if p.customer %} <span class="muted tiny">{{ p.customer.name }}</span>{% endif %}
+      <div class="meta">{{ p.feed_text|truncatechars:60|default:"（生成中）" }}</div></span><span class="chev">›</span>
+  </a>
+  {% empty %}<div class="card flat muted">まだ投稿がありません。カルテから作成できます。</div>{% endfor %}
+</section>
+<section class="section">
+  <div class="section-title"><h2>最近の施術から作る</h2></div>
+  {% for k in recent_kartes %}
+  <a class="list-item" href="{% url 'drafts:sns_new' %}?karte={{ k.pk }}"><span class="grow">{{ k.customer.name }} <span class="muted tiny">{{ k.visited_on|jadate }}</span><div class="meta">{{ k.menu_display }} ・ {{ k.treatment_summary|truncatechars:40 }}</div></span><span class="badge accent">作る</span></a>
+  {% empty %}<div class="card flat muted">カルテがまだありません</div>{% endfor %}
+</section>
+{% endblock %}

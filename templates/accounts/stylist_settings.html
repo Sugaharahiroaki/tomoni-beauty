@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}基本情報 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}基本情報{% endblock %}
+{% block back %}<a class="back" href="{% url 'core:settings_menu' %}">‹ メニュー</a>{% endblock %}
+{% block content %}
+<div class="card">
+  <form method="post">{% csrf_token %}
+    {% include "_form.html" %}
+    <button class="btn">保存</button>
+  </form>
+</div>
+<p class="muted tiny">歩合率・平均客単価・稼働時間は、第2段階の「空き枠が埋まれば月＋○万円」表示や手取り見込みに使います。今は未入力でも構いません。</p>
+{% endblock %}

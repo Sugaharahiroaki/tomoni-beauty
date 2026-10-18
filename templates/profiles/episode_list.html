@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}人柄エピソード | {{ APP_NAME }}{% endblock %}
+{% block page_title %}人柄エピソード集{% endblock %}
+{% block back %}<a class="back" href="{% url 'core:settings_menu' %}">‹ メニュー</a>{% endblock %}
+{% block topaction %}<a class="action" href="{% url 'profiles:episode_create' %}">＋ 追加</a>{% endblock %}
+{% block content %}
+<p class="muted">SNS投稿ごとに、その日の施術と相性の良いエピソードを1つ自動で選んで織り込みます。同じ話が続かないよう使用履歴を見ています。</p>
+{% for ep in episodes %}
+<div class="card {% if not ep.is_active %}flat{% endif %}">
+  <div class="row between">
+    <h3 style="margin:0">{{ ep.title }}</h3>
+    <span class="badge">{{ ep.usages.count }}回使用</span>
+  </div>
+  <p class="body-text tiny" style="margin:6px 0">{{ ep.body }}</p>
+  <div class="chips">{% for t in ep.themes %}<span class="chip">{{ t }}</span>{% endfor %}{% if ep.source == "ai" %}<span class="chip">AI生成</span>{% endif %}</div>
+  <div class="row mt">
+    <a class="btn sm secondary" href="{% url 'profiles:episode_edit' ep.pk %}">編集</a>
+    <form method="post" action="{% url 'profiles:episode_toggle' ep.pk %}">{% csrf_token %}<button class="btn sm ghost">{% if ep.is_active %}使わない{% else %}使う{% endif %}</button></form>
+    <form method="post" action="{% url 'profiles:episode_delete' ep.pk %}" data-confirm="このエピソードを削除しますか？">{% csrf_token %}<button class="btn sm ghost" style="color:var(--danger)">削除</button></form>
+  </div>
+</div>
+{% empty %}
+<div class="empty"><div class="big">📖</div><p>まだエピソードがありません。<br><a href="{% url 'profiles:interview' %}">音声インタビュー</a>に答えると自動で作られます。</p><a class="btn secondary" href="{% url 'profiles:episode_create' %}">手で追加する</a></div>
+{% endfor %}
+{% endblock %}

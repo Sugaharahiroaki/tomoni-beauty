@@ -1,0 +1,15 @@
+[Unit]
+Description=TOMONI Beauty background worker (django-q2 qcluster)
+After=network.target postgresql.service
+
+[Service]
+User=tomoni
+Group=tomoni
+WorkingDirectory=/srv/tomoni-beauty
+EnvironmentFile=/srv/tomoni-beauty/.env
+ExecStart=/srv/tomoni-beauty/.venv/bin/python manage.py qcluster
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

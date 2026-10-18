@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}LINE連携 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}はじめの設定 2/3{% endblock %}
+{% block nav %}{% endblock %}
+{% block content %}
+<div class="steps"><span class="done"></span><span class="done"></span><span></span></div>
+<h1>LINE公式アカウントをつなぐ</h1>
+<p class="muted">あなたのLINE公式アカウント（Messaging API）の情報を入れると、お客様からのメッセージが届き、返信案を作れるようになります。あとから「設定 › LINE連携」でも設定できるので、今はスキップしても大丈夫です。</p>
+<div class="card info">
+  <strong>通数について</strong>
+  <p class="muted tiny" style="margin:4px 0 0">このアプリは、1対1チャット（コピーして送信）と Reply 返信という<strong>通数を消費しない無料ルート</strong>を優先します。Push送信は設定でオンにした場合だけ使います。</p>
+</div>
+<div class="card">
+  <form method="post">{% csrf_token %}
+    {% include "_form.html" %}
+    <div class="btn-row">
+      <button class="btn secondary" name="skip" value="1">あとで設定</button>
+      <button class="btn">保存して次へ</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

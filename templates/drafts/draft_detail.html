@@ -1,0 +1,62 @@
+{% extends "base.html" %}{% load tomoni %}
+{% block title %}{{ draft.get_kind_display }} | {{ APP_NAME }}{% endblock %}
+{% block page_title %}{{ draft.get_kind_display }}{% endblock %}
+{% block back %}{% if draft.karte %}<a class="back" href="{% url 'karte:detail' draft.karte.pk %}">‹ カルテ</a>{% elif customer %}<a class="back" href="{% url 'customers:detail' customer.pk %}">‹ {{ customer.name }}</a>{% else %}<a class="back" href="{% url 'core:today' %}">‹ 今日</a>{% endif %}{% endblock %}
+{% block content %}
+<div class="card flat">
+  <div class="row">
+    <span class="avatar">{{ customer.name|initial }}</span>
+    <div class="grow"><strong>{{ customer.name }}</strong> <span class="badge {{ draft.status|badge_class }}">{{ draft.get_status_display }}</span>
+      <div class="muted tiny">{% if draft.scheduled_for %}送信予定 {{ draft.scheduled_for|jadate }} ・ {% endif %}{% if customer.is_line_linked %}LINE連携済み{% else %}LINE未連携（LINEアプリでお客様を探して貼り付け）{% endif %}</div></div>
+  </div>
+</div>
+
+{% if not can_send and block_reason %}<div class="card {% if draft.status == 'sent' %}ok{% else %}danger{% endif %} tiny">{{ block_reason }}</div>{% endif %}
+
+<form method="post" action="{% url 'drafts:mark_sent' draft.pk %}" id="draft-form">{% csrf_token %}
+  <div class="copy-box">
+    <textarea name="body" id="draft-body" data-autosave-url="{% url 'drafts:update' draft.pk %}" {% if not draft.is_sendable_status %}readonly{% endif %}>{{ draft.body }}</textarea>
+    <div class="row between muted tiny" style="margin-top:4px"><span id="autosave-status">{% if draft.is_edited %}編集済み{% else %}AIの下書き{% endif %}</span>{% if draft.tracked_link %}<span>予約リンク入り（クリック計測あり）</span>{% endif %}</div>
+  </div>
+
+  {% if draft.is_sendable_status %}
+  <div class="btn-group-vertical mt">
+    {% if can_send %}
+      {% if chat_url %}
+        <button type="button" class="btn line" data-copy-source="#draft-body" data-open-url="{{ chat_url }}" data-after-copy="#sent-confirm">📋 コピーしてLINEで開く（無料）</button>
+      {% else %}
+        <button type="button" class="btn line" data-copy-source="#draft-body" data-after-copy="#sent-confirm">📋 コピーする → LINE公式アカウントアプリで貼り付け</button>
+      {% endif %}
+      <div class="btn-row">
+        <button type="button" class="btn secondary" data-share-source="#draft-body">共有…</button>
+        <button type="button" class="btn secondary" data-copy-source="#draft-body" data-after-copy="#sent-confirm">コピーのみ</button>
+      </div>
+      <div id="sent-confirm" class="card ok" style="display:none">
+        <strong>LINEで送りましたか？</strong>
+        <p class="tiny" style="margin:4px 0 8px">送ったら記録しておくと、予約との関係（案内→予約）を集計できます。</p>
+        <button class="btn">送った（記録する）</button>
+      </div>
+    {% else %}
+      <button type="button" class="btn line disabled" disabled>送信できません（{{ block_reason }}）</button>
+    {% endif %}
+  </div>
+  {% endif %}
+</form>
+
+{% if draft.is_sendable_status and can_send and channel and channel.push_enabled and customer.line_user_id %}
+<form method="post" action="{% url 'lineapp:draft_push' draft.pk %}" class="card warn mt" data-confirm="Push送信は通数を1通消費します。送信しますか？">{% csrf_token %}
+  <strong class="tiny">Pushで直接送る（通数を消費）</strong>
+  <p class="tiny" style="margin:4px 0 8px">{% if push_quota %}今月 {{ push_quota.used }} / {{ push_quota.limit|default:"∞" }} 通使用{% if push_quota.remaining != None %}・残り {{ push_quota.remaining }} 通{% endif %}{% if push_quota.warn %} <span class="badge danger">上限に近づいています</span>{% endif %}{% else %}通数の取得前です。設定画面で「通数を更新」してください{% endif %}</p>
+  <button class="btn sm secondary" {% if push_quota and push_quota.would_exceed %}disabled{% endif %}>Pushで送信（1通）</button>
+</form>
+{% endif %}
+
+{% if draft.is_sendable_status %}
+<div class="row mt">
+  {% if draft.is_edited %}<form method="post" action="{% url 'drafts:reset' draft.pk %}">{% csrf_token %}<button class="btn sm ghost">AIの文に戻す</button></form>{% endif %}
+  <form method="post" action="{% url 'drafts:discard' draft.pk %}" data-confirm="この下書きを破棄しますか？">{% csrf_token %}<button class="btn sm ghost" style="color:var(--danger)">送らない（破棄）</button></form>
+</div>
+{% endif %}
+
+<p class="muted tiny mt">「コピーしてLINEで開く」は、LINE公式アカウントのチャット（1対1トーク）で送るため通数を消費しません。開いたチャットで長押し→貼り付けして送信してください。</p>
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}基本情報 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}はじめの設定 1/3{% endblock %}
+{% block nav %}{% if stylist.onboarding_completed %}{{ block.super }}{% endif %}{% endblock %}
+{% block content %}
+<div class="steps"><span class="done"></span><span></span><span></span></div>
+<h1>基本情報</h1>
+<p class="muted">予約リンクはLINEの文面に自動で入ります。ホットペッパービューティーのスタイリスト指名予約ページのURLを貼ってください（後から変更できます）。</p>
+<div class="card">
+  <form method="post">{% csrf_token %}
+    {% include "_form.html" %}
+    <button class="btn">{% if stylist.onboarding_completed %}保存{% else %}次へ：LINE連携{% endif %}</button>
+  </form>
+</div>
+<details class="mt"><summary>予約URLの見つけ方</summary>
+  <p class="muted tiny">ホットペッパービューティーで自分のスタイリストページを開き、「指名して予約する」ボタンのリンク（https://beauty.hotpepper.jp/CSP/bt/reserve/?storeId=H…&stylistId=T… の形）をコピーします。サロン全体の予約ページURLでも構いません。</p>
+</details>
+{% endblock %}

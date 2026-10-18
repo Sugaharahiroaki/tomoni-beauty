@@ -1,0 +1,105 @@
+{% extends "base.html" %}{% load tomoni humanize %}
+{% block title %}今日のおすすめ対応 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}今日 {{ today|jadate }}{% endblock %}
+{% block topaction %}<a class="action" href="{% url 'core:stats' %}">実績</a>{% endblock %}
+{% block content %}
+
+<div class="installbar"><span class="grow">ホーム画面に追加すると片手で開けます</span><button class="btn sm secondary" type="button">追加</button></div>
+
+{% if processing_memos %}
+<section class="section">
+  <div class="section-title"><h2>作成中</h2></div>
+  {% for memo in processing_memos %}
+  <a class="list-item" href="{% url 'karte:memo_detail' memo.pk %}">
+    <span class="avatar">{{ memo.customer.name|initial }}</span>
+    <span class="grow"><strong>{{ memo.customer.name }}</strong><div class="meta">{{ memo.get_status_display }}…</div></span>
+    <span class="badge warn">{{ memo.progress_percent }}%</span>
+  </a>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% if failed_memos %}
+<section class="section">
+  {% for memo in failed_memos %}
+  <a class="card danger" href="{% url 'karte:memo_detail' memo.pk %}" style="display:block">
+    <strong>{{ memo.customer.name }} のメモ作成に失敗</strong>
+    <div class="muted tiny">{{ memo.error|truncatechars:80 }}</div>
+  </a>
+  {% endfor %}
+</section>
+{% endif %}
+
+<section class="section">
+  <div class="section-title"><h2>返信待ちのLINE</h2><a href="{% url 'lineapp:inbox' %}">すべて</a></div>
+  {% for m in unreplied %}
+  <a class="list-item" href="{% url 'lineapp:inbound_detail' m.pk %}">
+    <span class="avatar">{{ m.customer.name|initial }}</span>
+    <span class="grow"><strong>{{ m.customer.name }}</strong>{% if m.needs_attention %} <span class="badge danger">要確認</span>{% endif %}
+      <div class="meta">{{ m.display_text|truncatechars:50 }}</div></span>
+    <span class="meta">{{ m.received_at|naturaltime }}</span>
+  </a>
+  {% empty %}
+  <div class="card flat muted">返信待ちはありません</div>
+  {% endfor %}
+</section>
+
+<section class="section">
+  <div class="section-title"><h2>送る文面</h2><a href="{% url 'drafts:list' %}">すべて</a></div>
+  {% for d in drafts_to_send %}
+  <a class="list-item" href="{% url 'drafts:detail' d.pk %}">
+    <span class="avatar">{{ d.customer.name|initial }}</span>
+    <span class="grow"><strong>{{ d.customer.name }}</strong> <span class="badge accent">{{ d.get_kind_display }}</span>
+      <div class="meta">{{ d.body|truncatechars:60 }}</div></span>
+    <span class="chev">›</span>
+  </a>
+  {% empty %}
+  <div class="card flat muted">送る文面はありません。施術後にメモを録音すると、お礼文がここに並びます。</div>
+  {% endfor %}
+</section>
+
+{% if due_followups %}
+<section class="section">
+  <div class="section-title"><h2>フォローの時期</h2><a href="{% url 'visits:followup_list' %}">すべて</a></div>
+  {% for fu in due_followups %}
+  <div class="list-item">
+    <span class="avatar">{{ fu.customer.name|initial }}</span>
+    <span class="grow"><strong>{{ fu.customer.name }}</strong><div class="meta">{{ fu.get_kind_display }} ・ 予定 {{ fu.due_date|jadate }}</div></span>
+    {% if fu.draft and fu.draft.is_sendable_status %}
+      <a class="btn sm" href="{% url 'drafts:detail' fu.draft.pk %}">文面を見る</a>
+    {% else %}
+      <form method="post" action="{% url 'visits:followup_prepare' fu.pk %}">{% csrf_token %}<button class="btn sm secondary">文面を作る</button></form>
+    {% endif %}
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+<section class="section">
+  <div class="section-title"><h2>本日の予約</h2><a href="{% url 'visits:reservation_list' %}">予約一覧</a></div>
+  {% for r in todays_reservations %}
+  <div class="list-item">
+    <span class="grow"><strong>{{ r.reserved_for|time:"H:i" }}</strong> {{ r.customer.name|default:r.customer_name_raw }}<div class="meta">{{ r.menu|default:"—" }} <span class="badge {{ r.status|badge_class }}">{{ r.get_status_display }}</span></div></span>
+    {% if r.status == "booked" and r.customer %}
+    <form method="post" action="{% url 'visits:reservation_visited' r.pk %}">{% csrf_token %}<button class="btn sm secondary">来店→メモ</button></form>
+    {% endif %}
+  </div>
+  {% empty %}
+  <div class="card flat muted">今日の予約は登録されていません。<a href="{% url 'visits:reservation_create' %}">予約を登録</a></div>
+  {% endfor %}
+</section>
+
+<section class="section">
+  <div class="section-title"><h2>今月</h2><a href="{% url 'core:stats' %}">詳しく</a></div>
+  <div class="stat-grid">
+    <div class="stat"><div class="num">{{ month_stats.messages_total }}</div><div class="label">送った案内</div></div>
+    <div class="stat"><div class="num">{{ month_stats.reservations_attributed }}<span class="muted tiny"> / {{ month_stats.reservations_total }}</span></div><div class="label">案内後の予約 / 全予約</div></div>
+    <div class="stat"><div class="num">{{ month_stats.visits }}</div><div class="label">来店</div></div>
+    <div class="stat"><div class="num">{{ month_stats.sns_posted }}</div><div class="label">SNS投稿</div></div>
+  </div>
+</section>
+
+<div class="sticky-actions">
+  <a class="btn" href="{% url 'karte:memo_new' %}">🎙 施術メモを録音する</a>
+</div>
+{% endblock %}

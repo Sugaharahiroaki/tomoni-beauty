@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}メニュー | {{ APP_NAME }}{% endblock %}
+{% block page_title %}メニュー{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="card">
+    <div class="row">
+      <span class="avatar">{{ stylist.display_name|slice:":1" }}</span>
+      <div class="grow"><strong>{{ stylist.display_name }}</strong><div class="muted tiny">{{ stylist.salon_name|default:"サロン名未設定" }} ・ {{ user.email }}</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-title"><h2>日々の仕事</h2></div>
+  <a class="list-item" href="{% url 'karte:list' %}"><span class="grow">カルテ一覧</span><span class="chev">›</span></a>
+  <a class="list-item" href="{% url 'drafts:sns_list' %}"><span class="grow">SNS投稿</span><span class="chev">›</span></a>
+  <a class="list-item" href="{% url 'drafts:list' %}"><span class="grow">LINE文面の下書き</span><span class="chev">›</span></a>
+  <a class="list-item" href="{% url 'visits:reservation_list' %}"><span class="grow">予約・来店</span><span class="chev">›</span></a>
+  <a class="list-item" href="{% url 'visits:followup_list' %}"><span class="grow">フォロー予定</span><span class="chev">›</span></a>
+  <a class="list-item" href="{% url 'core:stats' %}"><span class="grow">実績（案内→予約）</span><span class="chev">›</span></a>
+</section>
+
+<section class="section">
+  <div class="section-title"><h2>あなたのこと</h2></div>
+  <a class="list-item" href="{% url 'profiles:interview' %}"><span class="grow">音声インタビュー{% if not stylist.interview_completed %} <span class="badge warn">未完了</span>{% endif %}</span><span class="chev">›</span></a>
+  <a class="list-item" href="{% url 'profiles:episode_list' %}"><span class="grow">人柄エピソード集</span><span class="chev">›</span></a>
+  <a class="list-item" href="{% url 'profiles:style_settings' %}"><span class="grow">文体（語尾・絵文字・一人称）</span><span class="chev">›</span></a>
+</section>
+
+<section class="section">
+  <div class="section-title"><h2>設定</h2></div>
+  <a class="list-item" href="{% url 'accounts:stylist_settings' %}"><span class="grow">基本情報・ホットペッパー予約URL{% if not stylist.has_hotpepper %} <span class="badge warn">URL未設定</span>{% endif %}</span><span class="chev">›</span></a>
+  <a class="list-item" href="{% url 'lineapp:settings' %}"><span class="grow">LINE公式アカウント連携 {% if channel and channel.is_verified %}<span class="badge line">接続済み</span>{% else %}<span class="badge warn">未接続</span>{% endif %}</span><span class="chev">›</span></a>
+  <a class="list-item" href="{% url 'accounts:export_data' %}"><span class="grow">データのエクスポート（JSON）</span><span class="chev">›</span></a>
+  <a class="list-item" href="{% url 'accounts:account_delete' %}"><span class="grow" style="color:var(--danger)">アカウントとデータの削除</span><span class="chev">›</span></a>
+</section>
+
+<form method="post" action="{% url 'accounts:logout' %}" class="mt">{% csrf_token %}<button class="btn ghost">ログアウト</button></form>
+<p class="center muted tiny mt">TOMONI Beauty ・ 第1段階（MVP）</p>
+{% endblock %}

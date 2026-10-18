@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}お客様 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}{% if is_new %}お客様を登録{% else %}{{ customer.name }} を編集{% endif %}{% endblock %}
+{% block back %}{% if is_new %}<a class="back" href="{% url 'customers:list' %}">‹ 一覧</a>{% else %}<a class="back" href="{% url 'customers:detail' customer.pk %}">‹ 戻る</a>{% endif %}{% endblock %}
+{% block content %}
+<div class="card">
+  <form method="post">{% csrf_token %}
+    {% include "_form.html" %}
+    <p class="muted tiny">写真・顔出し・ストーリーの掲載は、お客様に口頭で確認してからONにしてください。ONにした日時は記録されます。NGの情報はSNS生成に使われません。</p>
+    <button class="btn">保存</button>
+  </form>
+</div>
+{% if not is_new %}
+<form method="post" action="{% url 'customers:delete' customer.pk %}" data-confirm="{{ customer.name }} さんのカルテ・履歴をすべて削除します。元に戻せません。よろしいですか？" class="mt">{% csrf_token %}
+  <button class="btn ghost" style="color:var(--danger)">このお客様のデータをすべて削除</button>
+</form>
+{% endif %}
+{% endblock %}

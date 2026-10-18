@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}インタビュー | {{ APP_NAME }}{% endblock %}
+{% block page_title %}はじめの設定 3/3{% endblock %}
+{% block nav %}{% endblock %}
+{% block content %}
+<div class="steps"><span class="done"></span><span class="done"></span><span class="done"></span></div>
+<h1>あなたのことを教えてください</h1>
+<p class="muted">12問の音声インタビューです。1問ずつ、話せるところだけ、いつでも中断できます。回答からAIが「人柄エピソード集」を作り、あなたにしか書けないSNS投稿の材料になります。</p>
+<div class="card">
+  <ul style="margin:0;padding-left:1.2rem">
+    <li>美容師になったきっかけ</li><li>修業時代のこと</li><li>大事にしている接客</li><li>得意な悩み</li><li>人生で大事にしていること</li><li>休日の過ごし方 など</li>
+  </ul>
+</div>
+<form method="post">{% csrf_token %}
+  <div class="btn-group-vertical">
+    <button class="btn" name="start" value="1">いま始める（10〜15分）</button>
+    <button class="btn secondary" name="later" value="1">あとでやる</button>
+  </div>
+</form>
+{% endblock %}

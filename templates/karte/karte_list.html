@@ -1,0 +1,19 @@
+{% extends "base.html" %}{% load tomoni %}
+{% block title %}カルテ | {{ APP_NAME }}{% endblock %}
+{% block page_title %}カルテ{% endblock %}
+{% block back %}<a class="back" href="{% url 'core:settings_menu' %}">‹ メニュー</a>{% endblock %}
+{% block topaction %}<a class="action" href="{% url 'karte:memo_new' %}">＋ 録音</a>{% endblock %}
+{% block content %}
+{% for m in pending %}
+<a class="list-item" href="{% url 'karte:memo_detail' m.pk %}"><span class="grow">{{ m.customer.name }} <span class="badge {{ m.status|badge_class }}">{{ m.get_status_display }}</span><div class="meta">{{ m.visited_on|jadate }}</div></span><span class="chev">›</span></a>
+{% endfor %}
+{% for k in kartes %}
+<a class="list-item" href="{% url 'karte:detail' k.pk %}">
+  <span class="avatar">{{ k.customer.name|initial }}</span>
+  <span class="grow"><strong>{{ k.customer.name }}</strong> <span class="muted tiny">{{ k.visited_on|jadate }}</span><div class="meta">{{ k.menu_display }} ・ {{ k.treatment_summary|truncatechars:40 }}</div></span>
+  <span class="chev">›</span>
+</a>
+{% empty %}
+<div class="empty"><div class="big">📝</div><p>まだカルテがありません</p><a class="btn" href="{% url 'karte:memo_new' %}">最初のメモを録音する</a></div>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}実績 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}実績{% endblock %}
+{% block back %}<a class="back" href="{% url 'core:today' %}">‹ 今日</a>{% endblock %}
+{% block content %}
+<section class="section">
+  <h2>{{ current.label }}</h2>
+  <div class="stat-grid">
+    <div class="stat"><div class="num">{{ current.messages_total }}</div><div class="label">送った案内（コピー {{ current.messages_copy }} / Reply {{ current.messages_reply }} / Push {{ current.messages_push }}）</div></div>
+    <div class="stat"><div class="num">{{ current.reservations_attributed }}</div><div class="label">案内後14日以内の予約</div></div>
+    <div class="stat"><div class="num">{{ current.reservations_total }}</div><div class="label">予約（全体）</div></div>
+    <div class="stat"><div class="num">{{ current.visits }}</div><div class="label">来店</div></div>
+    <div class="stat"><div class="num">{{ current.link_clicks }}</div><div class="label">予約リンクのクリック</div></div>
+    <div class="stat"><div class="num">{{ current.sns_posted }}</div><div class="label">SNS投稿</div></div>
+  </div>
+  <p class="muted tiny mt">「案内後の予約」は、案内を送ってから14日以内に登録された予約の数です。案内が無くても来ていたお客様も含まれるため、純粋な上乗せ効果は「全予約」との差や月ごとの推移で見てください。</p>
+</section>
+<section class="section">
+  <h2>月別の推移</h2>
+  <div class="card">
+    <table class="simple">
+      <thead><tr><th>月</th><th>案内</th><th>案内後予約</th><th>全予約</th><th>来店</th><th>クリック</th><th>SNS</th></tr></thead>
+      <tbody>
+      {% for r in rows %}
+        <tr><td>{{ r.label }}</td><td>{{ r.messages_total }}</td><td>{{ r.reservations_attributed }}</td><td>{{ r.reservations_total }}</td><td>{{ r.visits }}</td><td>{{ r.link_clicks }}</td><td>{{ r.sns_posted }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,87 @@
+{% extends "base.html" %}{% load tomoni humanize %}
+{% block title %}{{ customer.name }} | {{ APP_NAME }}{% endblock %}
+{% block page_title %}{{ customer.name }}{% endblock %}
+{% block back %}<a class="back" href="{% url 'customers:list' %}">‹ 一覧</a>{% endblock %}
+{% block topaction %}<a class="action" href="{% url 'customers:edit' customer.pk %}">編集</a>{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="row">
+    <span class="avatar">{% if customer.line_picture_url %}<img src="{{ customer.line_picture_url }}" alt="">{% else %}{{ customer.name|initial }}{% endif %}</span>
+    <div class="grow">
+      <strong>{{ customer.name }}</strong>{% if customer.kana %} <span class="muted tiny">{{ customer.kana }}</span>{% endif %}
+      <div class="muted tiny">呼び方: {{ customer.display_call_name }}{% if customer.preferred_timing %} ・ 希望: {{ customer.preferred_timing }}{% endif %}</div>
+      <div class="chips mt">{% for t in customer.tags.all %}<span class="chip">{{ t.name }}</span>{% endfor %}
+        {% if customer.is_line_linked %}<span class="badge line">LINE {{ customer.line_display_name }}</span>{% if not customer.line_followed %}<span class="badge danger">ブロック中</span>{% endif %}{% else %}<span class="badge">LINE未連携</span>{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if customer.needs_review %}
+<div class="card warn">
+  <strong>LINEから自動登録されました</strong>
+  <p class="tiny" style="margin:4px 0 8px">名前を直すか、既に登録済みのお客様と同じ人なら紐付けてください。</p>
+  {% if link_form %}
+  <form method="post" action="{% url 'customers:link_line' customer.pk %}">{% csrf_token %}
+    <div class="row">{{ link_form.target }}<button class="btn sm">紐付ける</button></div>
+  </form>
+  {% endif %}
+  <a class="btn sm secondary mt" href="{% url 'customers:edit' customer.pk %}">名前を確認して保存</a>
+</div>
+{% endif %}
+
+<div class="card" data-consent-url="{% url 'customers:consent' customer.pk %}">
+  <h3>連絡・掲載の同意</h3>
+  <div class="toggle-row"><span>LINEでの連絡</span><label class="switch"><input type="checkbox" name="contact_ok" {% if customer.contact_ok %}checked{% endif %}><span></span></label></div>
+  <div class="toggle-row"><span>施術写真の掲載</span><label class="switch"><input type="checkbox" name="photo_ok" {% if customer.photo_ok %}checked{% endif %}><span></span></label></div>
+  <div class="toggle-row"><span>顔出し</span><label class="switch"><input type="checkbox" name="face_ok" {% if customer.face_ok %}checked{% endif %}><span></span></label></div>
+  <div class="toggle-row"><span>悩み・施術ストーリーの掲載</span><label class="switch"><input type="checkbox" name="story_ok" {% if customer.story_ok %}checked{% endif %}><span></span></label></div>
+  <p class="muted tiny" style="margin:8px 0 0">{% if customer.consent_updated_at %}最終更新 {{ customer.consent_updated_at|jadatetime }}{% else %}まだ確認していません{% endif %}。ストーリー掲載は、名前や私生活が分からない形に一般化した上で使います。</p>
+</div>
+
+<div class="btn-row mb">
+  <a class="btn" href="{% url 'karte:memo_new' %}?customer={{ customer.pk }}">🎙 メモを録音</a>
+  <a class="btn secondary" href="{% url 'visits:reservation_create' %}?customer={{ customer.pk }}">予約を登録</a>
+</div>
+
+{% if followups %}
+<section class="section">
+  <div class="section-title"><h2>フォロー予定</h2></div>
+  {% for fu in followups %}<div class="list-item"><span class="grow">{{ fu.get_kind_display }} <span class="muted tiny">{{ fu.due_date|jadate }}（{{ fu.due_date|days_until }}）</span></span>{% if fu.draft %}<a class="btn sm secondary" href="{% url 'drafts:detail' fu.draft.pk %}">文面</a>{% endif %}</div>{% endfor %}
+</section>
+{% endif %}
+
+<section class="section">
+  <div class="section-title"><h2>カルテ</h2></div>
+  {% for k in kartes %}
+  <a class="list-item" href="{% url 'karte:detail' k.pk %}"><span class="grow"><strong>{{ k.visited_on|jadate }}</strong> {{ k.menu_display }}<div class="meta">{{ k.treatment_summary|truncatechars:60 }}</div></span><span class="chev">›</span></a>
+  {% empty %}<div class="card flat muted">まだカルテがありません</div>{% endfor %}
+</section>
+
+<section class="section">
+  <div class="section-title"><h2>LINEのやりとり</h2></div>
+  {% for d in drafts %}
+  <a class="list-item" href="{% url 'drafts:detail' d.pk %}"><span class="grow"><span class="badge {{ d.status|badge_class }}">{{ d.get_status_display }}</span> {{ d.get_kind_display }}<div class="meta">{{ d.body|truncatechars:50 }}</div></span><span class="chev">›</span></a>
+  {% endfor %}
+  {% for m in inbound %}
+  <a class="list-item" href="{% url 'lineapp:inbound_detail' m.pk %}"><span class="grow"><span class="badge line">受信</span> {{ m.display_text|truncatechars:50 }}<div class="meta">{{ m.received_at|naturaltime }}{% if m.replied_at %} ・ 返信済み{% endif %}</div></span><span class="chev">›</span></a>
+  {% endfor %}
+  {% if not drafts and not inbound %}<div class="card flat muted">まだやりとりがありません</div>{% endif %}
+</section>
+
+<section class="section">
+  <div class="section-title"><h2>予約・来店</h2><a href="{% url 'visits:visit_create' %}?customer={{ customer.pk }}">来店を記録</a></div>
+  {% for r in reservations %}<div class="list-item"><span class="grow">{{ r.reserved_for|jadatetime }} {{ r.menu }}<div class="meta"><span class="badge {{ r.status|badge_class }}">{{ r.get_status_display }}</span>{% if r.attributed_message %} 案内後の予約{% endif %}</div></span></div>{% endfor %}
+  {% for v in visits %}<div class="list-item"><span class="grow">来店 {{ v.visited_at|jadatetime }} {{ v.menu }}{% if v.price %} ¥{{ v.price|intcomma }}{% endif %}</span></div>{% endfor %}
+  {% if not reservations and not visits %}<div class="card flat muted">記録がありません</div>{% endif %}
+</section>
+
+{% if sns_posts %}
+<section class="section">
+  <div class="section-title"><h2>SNS投稿</h2></div>
+  {% for p in sns_posts %}<a class="list-item" href="{% url 'drafts:sns_detail' p.pk %}"><span class="grow"><span class="badge {{ p.status|badge_class }}">{{ p.get_status_display }}</span> {{ p.get_purpose_display }}<div class="meta">{{ p.feed_text|truncatechars:50 }}</div></span><span class="chev">›</span></a>{% endfor %}
+</section>
+{% endif %}
+
+{% if customer.memo %}<div class="card flat"><strong class="tiny">メモ（非公開）</strong><p class="body-text tiny" style="margin:4px 0 0">{{ customer.memo }}</p></div>{% endif %}
+{% endblock %}

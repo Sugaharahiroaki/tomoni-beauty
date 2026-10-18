@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}新規登録 | {{ APP_NAME }}{% endblock %}
+{% block topbar %}{% endblock %}
+{% block content %}
+<div class="auth-page">
+  <div class="logo"><div class="mark">TOMONI Beauty</div></div>
+  <div class="card center">
+    <p>現在は招待制で試験運用中です。<br>参加をご希望の方は運営までご連絡ください。</p>
+    <a class="btn secondary" href="{% url 'accounts:login' %}">ログインへ</a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}カルテ編集 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}カルテを編集{% endblock %}
+{% block back %}<a class="back" href="{% url 'karte:detail' karte.pk %}">‹ カルテ</a>{% endblock %}
+{% block content %}
+<div class="card">
+  <form method="post">{% csrf_token %}
+    {% include "_form.html" %}
+    <button class="btn">保存</button>
+  </form>
+</div>
+<p class="muted tiny">「非公開メモ」はSNS投稿の生成に一切使われません。悩み・対処はストーリー掲載OKのお客様の場合のみ、一般化してSNSに使います。</p>
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}新規登録 | {{ APP_NAME }}{% endblock %}
+{% block topbar %}{% endblock %}
+{% block content %}
+<div class="auth-page">
+  <div class="logo"><div class="mark">TOMONI Beauty</div><div class="muted">美容師さんのアカウントを作成します</div></div>
+  <div class="card">
+    <form method="post">{% csrf_token %}
+      {% include "_form.html" %}
+      <p class="muted tiny"><a href="{% url 'core:terms' %}" target="_blank">利用規約</a>・<a href="{% url 'core:privacy' %}" target="_blank">プライバシーポリシー</a>。お客様の情報はあなたのアカウント内だけで管理され、他の美容師からは見えません。お客様ごとに写真・顔出し・ストーリー掲載の同意を記録してから投稿に使います。</p>
+      <button class="btn">アカウントを作成</button>
+    </form>
+  </div>
+  <p class="center muted">すでにアカウントがある方は <a href="{% url 'accounts:login' %}">ログイン</a></p>
+</div>
+{% endblock %}

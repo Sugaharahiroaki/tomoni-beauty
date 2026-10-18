@@ -1,0 +1,26 @@
+{% extends "base.html" %}{% load tomoni humanize %}
+{% block title %}LINE受信 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}LINE{% endblock %}
+{% block topaction %}<a class="action" href="{% url 'drafts:list' %}">下書き</a>{% endblock %}
+{% block content %}
+{% if not channel or not channel.is_verified %}
+<div class="card warn tiny">LINE公式アカウントが未接続です。<a href="{% url 'lineapp:settings' %}">設定</a>から接続すると、お客様からのメッセージがここに届き、返信案を作れます。</div>
+{% endif %}
+<section class="section">
+  <div class="section-title"><h2>返信待ち</h2></div>
+  {% for m in unreplied %}
+  <a class="list-item" href="{% url 'lineapp:inbound_detail' m.pk %}">
+    <span class="avatar">{% if m.customer.line_picture_url %}<img src="{{ m.customer.line_picture_url }}" alt="">{% else %}{{ m.customer.name|initial }}{% endif %}</span>
+    <span class="grow"><strong>{{ m.customer.name }}</strong>{% if m.needs_attention %} <span class="badge danger">要確認</span>{% endif %}{% if m.reply_token_valid %} <span class="badge ok">Reply可</span>{% endif %}
+      <div class="meta">{{ m.display_text|truncatechars:60 }}</div></span>
+    <span class="meta">{{ m.received_at|naturaltime }}</span>
+  </a>
+  {% empty %}<div class="card flat muted">返信待ちはありません</div>{% endfor %}
+</section>
+<section class="section">
+  <div class="section-title"><h2>最近</h2></div>
+  {% for m in recent %}
+  <a class="list-item" href="{% url 'lineapp:inbound_detail' m.pk %}"><span class="grow">{{ m.customer.name }}<div class="meta">{{ m.display_text|truncatechars:50 }} ・ {% if m.ignored %}対応不要{% else %}返信済み（{{ m.reply_route|route_label }}）{% endif %}</div></span><span class="meta">{{ m.received_at|naturaltime }}</span></a>
+  {% empty %}<div class="card flat muted">まだ受信がありません</div>{% endfor %}
+</section>
+{% endblock %}

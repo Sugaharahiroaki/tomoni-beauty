@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}来店を記録 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}来店を記録{% endblock %}
+{% block back %}<a class="back" href="{% url 'visits:reservation_list' %}">‹ 予約</a>{% endblock %}
+{% block content %}
+<div class="card">
+  <form method="post">{% csrf_token %}
+    {% include "_form.html" %}
+    <div class="btn-row">
+      <button class="btn secondary">保存</button>
+      <button class="btn" name="then_memo" value="1">保存してメモを録音</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

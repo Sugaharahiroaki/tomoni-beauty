@@ -1,0 +1,91 @@
+{% extends "base.html" %}{% load tomoni %}
+{% block title %}カルテ {{ customer.name }} | {{ APP_NAME }}{% endblock %}
+{% block page_title %}{{ customer.name }} {{ karte.visited_on|jadate }}{% endblock %}
+{% block back %}<a class="back" href="{% url 'customers:detail' customer.pk %}">‹ {{ customer.name }}</a>{% endblock %}
+{% block topaction %}<a class="action" href="{% url 'karte:edit' karte.pk %}">編集</a>{% endblock %}
+{% block content %}
+
+{% if consent_suggestions %}
+<div class="card warn">
+  <strong>メモの中で掲載の話がありました</strong>
+  {% for s in consent_suggestions %}
+  <form method="post" action="{% url 'customers:consent' customer.pk %}" class="row between mt">{% csrf_token %}
+    <input type="hidden" name="{{ s.field }}" value="{% if s.value %}1{% else %}0{% endif %}"><input type="hidden" name="next" value="{{ request.path }}">
+    <span class="tiny">{{ s.label }}：{% if s.value %}OK{% else %}NG{% endif %} と言っていました</span><button class="btn sm secondary">設定に反映</button>
+  </form>
+  {% endfor %}
+</div>
+{% endif %}
+
+<section class="section">
+  <div class="section-title"><h2>LINEで送る文面</h2></div>
+  {% for d in drafts %}
+  <a class="list-item" href="{% url 'drafts:detail' d.pk %}">
+    <span class="grow"><strong>{{ d.get_kind_display }}</strong> <span class="badge {{ d.status|badge_class }}">{{ d.get_status_display }}</span>{% if d.scheduled_for %} <span class="muted tiny">送信予定 {{ d.scheduled_for|jadate }}</span>{% endif %}
+      <div class="meta">{{ d.body|truncatechars:70 }}</div></span><span class="chev">›</span>
+  </a>
+  {% empty %}
+  <div class="card flat muted">文面がありません。<form method="post" action="{% url 'karte:regenerate' karte.pk %}" style="display:inline">{% csrf_token %}<button class="linklike">作成する</button></form></div>
+  {% endfor %}
+  {% if follow_up %}<p class="muted tiny">次回案内の予定日: {{ follow_up.due_date|jadate }}（{{ follow_up.due_date|days_until }}）{% if karte.next_visit_weeks %} ・ 来店目安 {{ karte.next_visit_weeks }}週間後{% endif %}</p>{% endif %}
+</section>
+
+<section class="section">
+  <div class="section-title"><h2>SNS投稿</h2></div>
+  {% for p in sns_posts %}<a class="list-item" href="{% url 'drafts:sns_detail' p.pk %}"><span class="grow"><span class="badge {{ p.status|badge_class }}">{{ p.get_status_display }}</span> {{ p.get_purpose_display }}<div class="meta">{{ p.feed_text|truncatechars:50 }}</div></span><span class="chev">›</span></a>{% endfor %}
+  <a class="btn secondary" href="{% url 'drafts:sns_new' %}?karte={{ karte.pk }}">✨ この施術からSNS投稿を作る</a>
+  <p class="muted tiny mt">{% if customer.story_ok %}ストーリー掲載OK：悩みと結果を一般化して使います{% else %}ストーリー掲載NG：施術内容のみで作ります{% endif %}。{% if customer.photo_ok %}写真OK{% if not customer.face_ok %}（顔出しNG）{% endif %}{% else %}写真NG{% endif %}。</p>
+</section>
+
+<section class="section">
+  <div class="section-title"><h2>写真</h2></div>
+  <div class="photo-grid">
+    {% for p in photos %}
+    <div class="photo {% if not p.usable_for_sns %}blocked{% endif %}">
+      <img src="{{ p.image.url }}" alt="">
+      <span class="tag badge {% if p.usable_for_sns %}ok{% else %}danger{% endif %}">{% if p.usable_for_sns %}掲載可{% else %}不可{% endif %}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% for p in photos %}
+  <div class="photo-actions tiny">
+    <span class="muted">写真{{ forloop.counter }}:</span>
+    <form method="post" action="{% url 'karte:photo_update' p.pk %}">{% csrf_token %}<input type="hidden" name="face_visible" value="{% if p.face_visible %}0{% else %}1{% endif %}"><button class="btn sm ghost">{% if p.face_visible %}顔あり→なし{% else %}顔なし→あり{% endif %}</button></form>
+    <form method="post" action="{% url 'karte:photo_update' p.pk %}">{% csrf_token %}<input type="hidden" name="sns_ok" value="{% if p.sns_ok %}0{% else %}1{% endif %}"><button class="btn sm ghost">{% if p.sns_ok %}掲載しない{% else %}掲載する{% endif %}</button></form>
+    <form method="post" action="{% url 'karte:photo_delete' p.pk %}" data-confirm="写真を削除しますか？">{% csrf_token %}<button class="btn sm ghost" style="color:var(--danger)">削除</button></form>
+    {% if p.blocked_reason %}<span class="muted">{{ p.blocked_reason }}</span>{% endif %}
+  </div>
+  {% endfor %}
+  <form method="post" action="{% url 'karte:photo_add' karte.pk %}" enctype="multipart/form-data" class="card flat mt">{% csrf_token %}
+    <input type="file" name="image" accept="image/*" multiple capture="environment">
+    <div class="check"><input type="checkbox" name="sns_ok" id="p_sns_ok" {% if customer.photo_ok %}checked{% endif %}><label for="p_sns_ok">SNSに掲載してよい写真</label></div>
+    <div class="check"><input type="checkbox" name="face_visible" id="p_face"><label for="p_face">顔が写っている</label></div>
+    <button class="btn sm secondary">写真を追加</button>
+  </form>
+</section>
+
+<section class="section">
+  <div class="section-title"><h2>カルテ</h2></div>
+  <div class="card">
+    <dl class="kv">
+      <dt>メニュー</dt><dd>{{ karte.menu_display }}</dd>
+      <dt>施術内容</dt><dd>{{ karte.treatment_summary|default:"—" }}</dd>
+      {% if karte.design_details %}<dt>仕上がり</dt><dd>{{ karte.design_details }}</dd>{% endif %}
+      <dt>お悩み</dt><dd>{% for c in karte.concerns %}・{{ c }}<br>{% empty %}—{% endfor %}</dd>
+      <dt>対処・結果</dt><dd>{{ karte.results|default:"—" }}</dd>
+      {% if karte.products_used %}<dt>使用剤</dt><dd>{{ karte.products_used|join:"、" }}</dd>{% endif %}
+      <dt>ホームケア</dt><dd>{% for c in karte.home_care_advice %}・{{ c }}<br>{% empty %}—{% endfor %}</dd>
+      <dt>次回確認</dt><dd>{% for c in karte.next_check_items %}・{{ c }}<br>{% empty %}—{% endfor %}</dd>
+      <dt>次回目安</dt><dd>{% if karte.next_visit_weeks %}{{ karte.next_visit_weeks }}週間後{% else %}未設定（標準 {{ stylist.default_cycle_weeks }}週）{% endif %}</dd>
+      {% if karte.customer_requests %}<dt>ご要望</dt><dd>{{ karte.customer_requests|join:"、" }}</dd>{% endif %}
+    </dl>
+  </div>
+  {% if karte.private_notes %}<div class="card flat"><strong class="tiny">非公開メモ（SNSには使われません）</strong><p class="body-text tiny" style="margin:4px 0 0">{{ karte.private_notes }}</p></div>{% endif %}
+  {% if karte.memo and karte.memo.transcript %}<details><summary class="tiny">文字起こしを見る</summary><p class="body-text tiny">{{ karte.memo.transcript }}</p></details>{% endif %}
+</section>
+
+<div class="row mt">
+  <form method="post" action="{% url 'karte:regenerate' karte.pk %}">{% csrf_token %}<button class="btn sm ghost">文面を作り直す</button></form>
+  <form method="post" action="{% url 'karte:delete' karte.pk %}" data-confirm="このカルテと文面を削除しますか？">{% csrf_token %}<button class="btn sm ghost" style="color:var(--danger)">カルテを削除</button></form>
+</div>
+{% endblock %}

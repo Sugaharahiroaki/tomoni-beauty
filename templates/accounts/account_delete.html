@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}アカウント削除 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}アカウント削除{% endblock %}
+{% block back %}<a class="back" href="{% url 'core:settings_menu' %}">‹ メニュー</a>{% endblock %}
+{% block content %}
+<div class="card danger">
+  <strong>この操作は取り消せません</strong>
+  <p class="tiny" style="margin:4px 0 0">あなたのアカウント、お客様情報、カルテ、音声・写真、LINEの送受信履歴、SNS投稿の下書きがすべて削除されます。必要なら先に <a href="{% url 'accounts:export_data' %}">データをエクスポート</a> してください。</p>
+</div>
+<div class="card">
+  <form method="post" data-confirm="本当に削除しますか？この操作は取り消せません。">{% csrf_token %}
+    {% include "_form.html" %}
+    <button class="btn danger">アカウントとデータを削除する</button>
+  </form>
+</div>
+{% endblock %}

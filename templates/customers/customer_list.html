@@ -1,0 +1,20 @@
+{% extends "base.html" %}{% load tomoni %}
+{% block title %}お客様 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}お客様{% endblock %}
+{% block topaction %}<a class="action" href="{% url 'customers:create' %}">＋ 登録</a>{% endblock %}
+{% block content %}
+<form method="get" class="mb"><input type="search" name="q" value="{{ q }}" placeholder="名前・よみ・タグで検索" autocomplete="off"></form>
+{% if review_count %}<div class="card warn tiny">LINEから自動登録された未確認のお客様が {{ review_count }} 人います。名前を確認するか、既存のお客様と紐付けてください。</div>{% endif %}
+{% for c in customers %}
+<a class="list-item" href="{% url 'customers:detail' c.pk %}">
+  <span class="avatar">{% if c.line_picture_url %}<img src="{{ c.line_picture_url }}" alt="">{% else %}{{ c.name|initial }}{% endif %}</span>
+  <span class="grow"><strong>{{ c.name }}</strong>{% if c.needs_review %} <span class="badge warn">要確認</span>{% endif %}{% if c.is_line_linked %} <span class="badge line">LINE</span>{% endif %}
+    <div class="meta">
+      {% for label, ok in c.consent_summary %}<span class="badge {% if ok %}ok{% endif %}">{{ label }}{% if ok %}OK{% else %}NG{% endif %}</span> {% endfor %}
+    </div></span>
+  <span class="chev">›</span>
+</a>
+{% empty %}
+<div class="empty"><div class="big">👤</div><p>{% if q %}該当するお客様がいません{% else %}まだお客様が登録されていません{% endif %}</p><a class="btn" href="{% url 'customers:create' %}">お客様を登録</a></div>
+{% endfor %}
+{% endblock %}

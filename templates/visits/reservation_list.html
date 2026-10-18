@@ -1,0 +1,25 @@
+{% extends "base.html" %}{% load tomoni %}
+{% block title %}予約 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}予約・来店{% endblock %}
+{% block back %}<a class="back" href="{% url 'core:settings_menu' %}">‹ メニュー</a>{% endblock %}
+{% block topaction %}<a class="action" href="{% url 'visits:reservation_create' %}">＋ 予約</a>{% endblock %}
+{% block content %}
+<div class="card info tiny">ホットペッパー（SALON BOARD）の予約は手入力で登録します（第2段階で予約通知メールの自動取り込みを予定）。案内を送ってから14日以内の予約は「案内後の予約」として自動で記録されます。</div>
+<section class="section">
+  <div class="section-title"><h2>これからの予約</h2></div>
+  {% for r in upcoming %}
+  <div class="list-item">
+    <span class="grow"><strong>{{ r.reserved_for|jadatetime }}</strong> {{ r.customer.name|default:r.customer_name_raw }}
+      <div class="meta">{{ r.menu|default:"—" }}{% if r.attributed_message %} ・ <span class="badge ok">案内後の予約</span>{% endif %}{% if not r.customer %} ・ <span class="badge warn">お客様未選択</span>{% endif %}</div></span>
+    <a class="btn sm ghost" href="{% url 'visits:reservation_edit' r.pk %}">編集</a>
+    {% if r.customer %}<form method="post" action="{% url 'visits:reservation_visited' r.pk %}">{% csrf_token %}<button class="btn sm secondary">来店</button></form>{% endif %}
+  </div>
+  {% empty %}<div class="card flat muted">予約はありません</div>{% endfor %}
+</section>
+<section class="section">
+  <div class="section-title"><h2>過去</h2><a href="{% url 'visits:visit_create' %}">来店を直接記録</a></div>
+  {% for r in past %}
+  <div class="list-item"><span class="grow">{{ r.reserved_for|jadatetime }} {{ r.customer.name|default:r.customer_name_raw }}<div class="meta"><span class="badge {{ r.status|badge_class }}">{{ r.get_status_display }}</span> {{ r.menu }}</div></span></div>
+  {% empty %}<div class="card flat muted">まだ履歴がありません</div>{% endfor %}
+</section>
+{% endblock %}

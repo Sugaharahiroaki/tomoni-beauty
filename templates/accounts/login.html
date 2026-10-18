@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}ログイン | {{ APP_NAME }}{% endblock %}
+{% block topbar %}{% endblock %}
+{% block content %}
+<div class="auth-page">
+  <div class="logo"><div class="mark">TOMONI Beauty</div><div class="muted">施術後30秒の音声メモから、カルテ・LINE・SNS投稿を。</div></div>
+  <div class="card">
+    <form method="post">{% csrf_token %}
+      {% include "_form.html" %}
+      <input type="hidden" name="next" value="{{ next }}">
+      <button class="btn">ログイン</button>
+    </form>
+  </div>
+  <p class="center muted">アカウントがない方は <a href="{% url 'accounts:signup' %}">新規登録</a></p>
+</div>
+{% endblock %}

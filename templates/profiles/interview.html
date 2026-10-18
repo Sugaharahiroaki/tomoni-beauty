@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}音声インタビュー | {{ APP_NAME }}{% endblock %}
+{% block page_title %}音声インタビュー{% endblock %}
+{% block back %}<a class="back" href="{% url 'core:settings_menu' %}">‹ メニュー</a>{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="row between"><strong>{{ answered }} / {{ total }} 問 回答済み</strong>{% if episode_count %}<span class="badge ok">エピソード {{ episode_count }}件</span>{% endif %}</div>
+  <div class="progress mt"><div style="width: {% widthratio answered total 100 %}%"></div></div>
+  <p class="muted tiny mt">1問1〜2分、話せる質問だけで大丈夫です。{{ min_answers }}問以上答えるとエピソードを作れます。</p>
+  {% if next_question %}<a class="btn mt" href="{% url 'profiles:interview_question' next_question.order %}">Q{{ next_question.order }} から続ける</a>{% endif %}
+</div>
+
+<form method="post" action="{% url 'profiles:interview_generate' %}" class="mb">{% csrf_token %}
+  <button class="btn {% if not can_generate %}disabled{% endif %}" {% if not can_generate %}disabled{% endif %}>回答から人柄エピソード集を作る</button>
+</form>
+
+<div class="card-list">
+{% for r in rows %}
+  <a class="list-item" href="{% url 'profiles:interview_question' r.question.order %}">
+    <span class="avatar">{{ r.question.order }}</span>
+    <span class="grow">{{ r.question.text }}
+      <div class="meta">
+        {% if r.answer %}
+          {% if r.answer.status == "done" and r.answer.transcript %}<span class="badge ok">回答済み</span> {{ r.answer.transcript|truncatechars:40 }}
+          {% elif r.answer.status == "failed" %}<span class="badge danger">文字起こし失敗</span>
+          {% else %}<span class="badge warn">{{ r.answer.get_status_display }}</span>{% endif %}
+        {% else %}未回答{% endif %}
+      </div>
+    </span>
+    <span class="chev">›</span>
+  </a>
+{% endfor %}
+</div>
+{% endblock %}

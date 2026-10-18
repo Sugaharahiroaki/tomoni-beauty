@@ -1,0 +1,46 @@
+{% extends "base.html" %}{% load tomoni %}
+{% block title %}SNS投稿を作る | {{ APP_NAME }}{% endblock %}
+{% block page_title %}SNS投稿を作る{% endblock %}
+{% block back %}{% if karte %}<a class="back" href="{% url 'karte:detail' karte.pk %}">‹ カルテ</a>{% else %}<a class="back" href="{% url 'drafts:sns_list' %}">‹ 一覧</a>{% endif %}{% endblock %}
+{% block content %}
+{% if karte %}
+<div class="card flat">
+  <strong>{{ karte.customer.name }} ・ {{ karte.visited_on|jadate }}</strong>
+  <div class="muted tiny">{{ karte.menu_display }} ・ {{ karte.treatment_summary|truncatechars:60 }}</div>
+  <div class="consents mt">
+    <span class="badge {% if karte.customer.story_ok %}ok{% else %}danger{% endif %}">ストーリー{% if karte.customer.story_ok %}OK{% else %}NG{% endif %}</span>
+    <span class="badge {% if karte.customer.photo_ok %}ok{% else %}danger{% endif %}">写真{% if karte.customer.photo_ok %}OK{% else %}NG{% endif %}</span>
+    <span class="badge {% if karte.customer.face_ok %}ok{% else %}danger{% endif %}">顔出し{% if karte.customer.face_ok %}OK{% else %}NG{% endif %}</span>
+  </div>
+</div>
+{% else %}
+<div class="card warn tiny">カルテを指定せずに作ると、エピソードと目的だけで投稿を作ります。</div>
+{% endif %}
+
+<form method="post" class="card">{% csrf_token %}
+  {% if form.non_field_errors %}<div class="nonfield">{{ form.non_field_errors }}</div>{% endif %}
+  <div class="field"><label>{{ form.purpose.label }}</label><ul class="radio-list">{% for radio in form.purpose %}<li>{{ radio.tag }}<label for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label></li>{% endfor %}</ul></div>
+
+  {% if karte %}
+  <div class="check">{{ form.uses_story }}<label for="{{ form.uses_story.id_for_label }}">{{ form.uses_story.label }}</label></div>
+  {% if form.uses_story.help_text %}<div class="help">{{ form.uses_story.help_text }}</div>{% endif %}
+  <p class="muted tiny">お客様の名前・年齢・職業・私生活は使わず、「同じ悩みの人が自分のことだと感じる」粒度に一般化します。生成後に個人情報チェックも行います。</p>
+  {% endif %}
+
+  <div class="field"><label>{{ form.episode.label }}</label>{{ form.episode }}
+    {% if suggested %}<div class="help">おすすめ: <strong>{{ suggested.title }}</strong>（{{ suggested.themes_display }}）— 今日の施術との相性と使用履歴から選びました</div>{% endif %}
+  </div>
+  <div class="check">{{ form.no_episode }}<label for="{{ form.no_episode.id_for_label }}">{{ form.no_episode.label }}</label></div>
+
+  {% if karte %}
+  <div class="field"><label>{{ form.photos.label }}</label>
+    {% if usable_photos %}
+    <div class="photo-grid">{% for p in usable_photos %}<label class="photo"><img src="{{ p.image.url }}" alt=""><span class="tag"><input type="checkbox" name="photos" value="{{ p.id }}" checked style="width:22px;height:22px"></span></label>{% endfor %}</div>
+    {% else %}<div class="help">掲載できる写真がありません（写真NG・顔出しNG・未登録）。写真なしで文章だけ作ります。</div>{% endif %}
+  </div>
+  {% endif %}
+
+  <div class="field"><label for="{{ form.extra_notes.id_for_label }}">{{ form.extra_notes.label }}</label>{{ form.extra_notes }}</div>
+  <button class="btn">✨ 投稿文を作る</button>
+</form>
+{% endblock %}

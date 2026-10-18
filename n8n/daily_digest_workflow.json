@@ -1,0 +1,89 @@
+{
+  "name": "TOMONI Beauty - 日次処理と今日のおすすめ対応メール",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {"interval": [{"field": "cronExpression", "expression": "0 8 * * *"}]}
+      },
+      "name": "毎朝8時 (JST)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.TOMONI_SITE_URL }}/internal/cron/daily/",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "X-Internal-Token", "value": "={{ $env.TOMONI_INTERNAL_TOKEN }}"}]},
+        "options": {"timeout": 120000}
+      },
+      "name": "日次処理（フォロー下書き・通数取得）",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.TOMONI_SITE_URL }}/internal/digest/",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "X-Internal-Token", "value": "={{ $env.TOMONI_INTERNAL_TOKEN }}"}]},
+        "options": {}
+      },
+      "name": "今日のおすすめ対応を取得",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 0]
+    },
+    {
+      "parameters": {"fieldToSplitOut": "stylists", "options": {}},
+      "name": "美容師ごとに分割",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [720, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict"},
+          "conditions": [
+            {"leftValue": "={{ $json.unreplied_messages + $json.drafts_to_send + $json.due_followups + $json.todays_reservations }}", "rightValue": 0, "operator": {"type": "number", "operation": "gt"}}
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "対応があるか",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [960, 0]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.TOMONI_MAIL_FROM }}",
+        "toEmail": "={{ $json.email }}",
+        "subject": "=【TOMONI】今日のおすすめ対応（{{ $now.setZone('Asia/Tokyo').toFormat('M/d') }}）",
+        "text": "={{ $json.display_name }} さん\n\n今日の対応です。アプリを開いて確認してください。\n\n・返信待ちのLINE: {{ $json.unreplied_messages }} 件\n・送る文面: {{ $json.drafts_to_send }} 件\n・フォローの時期: {{ $json.due_followups }} 件\n・本日の予約: {{ $json.todays_reservations }} 件\n\n{{ $env.TOMONI_SITE_URL }}/\n",
+        "options": {}
+      },
+      "name": "メールで通知",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1200, -80],
+      "credentials": {"smtp": {"id": "REPLACE_WITH_SMTP_CREDENTIAL_ID", "name": "SMTP"}}
+    }
+  ],
+  "connections": {
+    "毎朝8時 (JST)": {"main": [[{"node": "日次処理（フォロー下書き・通数取得）", "type": "main", "index": 0}]]},
+    "日次処理（フォロー下書き・通数取得）": {"main": [[{"node": "今日のおすすめ対応を取得", "type": "main", "index": 0}]]},
+    "今日のおすすめ対応を取得": {"main": [[{"node": "美容師ごとに分割", "type": "main", "index": 0}]]},
+    "美容師ごとに分割": {"main": [[{"node": "対応があるか", "type": "main", "index": 0}]]},
+    "対応があるか": {"main": [[{"node": "メールで通知", "type": "main", "index": 0}], []]}
+  },
+  "settings": {"timezone": "Asia/Tokyo", "executionOrder": "v1"},
+  "staticData": null,
+  "meta": {"templateCredsSetupCompleted": false},
+  "pinData": {},
+  "versionId": "1"
+}
