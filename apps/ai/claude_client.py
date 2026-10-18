@@ -29,6 +29,10 @@ class BaseAIClient:
     def generate_json_with_document(self, task: str, system: str, user: str, schema: dict, data: bytes, media_type: str, max_tokens: int = 6000) -> dict:  # pragma: no cover
         raise NotImplementedError
 
+    def generate_json_messages(self, task: str, system: str, messages: list[dict], schema: dict, max_tokens: int = 16000) -> dict | None:  # pragma: no cover
+        """複数の画像を含むメッセージをそのまま渡す（動画の台本づくり用）。ダミー実装は None を返し、呼び出し側が見本で代替する。"""
+        raise NotImplementedError
+
 
 def document_block(data: bytes, media_type: str) -> dict:
     b64 = base64.standard_b64encode(data).decode("utf-8")
@@ -106,6 +110,9 @@ class ClaudeClient(BaseAIClient):
         content = [document_block(data, media_type), {"type": "text", "text": user}]
         return self._call(task, system, [{"role": "user", "content": content}], schema, max_tokens)
 
+    def generate_json_messages(self, task: str, system: str, messages: list[dict], schema: dict, max_tokens: int = 16000) -> dict | None:
+        return self._call(task, system, messages, schema, max_tokens)
+
 
 class FakeAIClient(BaseAIClient):
     """APIキー無しの開発・テスト用。入力に応じたそれらしい日本語を返す。"""
@@ -119,6 +126,9 @@ class FakeAIClient(BaseAIClient):
     def generate_json_with_document(self, task: str, system: str, user: str, schema: dict, data: bytes, media_type: str, max_tokens: int = 6000) -> dict:
         document_block(data, media_type)  # 形式チェックだけ本物と同じにする
         return self.generate_json(task, system, user, schema, max_tokens)
+
+    def generate_json_messages(self, task: str, system: str, messages: list[dict], schema: dict, max_tokens: int = 16000) -> dict | None:
+        return None  # 呼び出し側（動画の台本）が型の見本で代替する
 
     @staticmethod
     def _seed(user: str) -> int:

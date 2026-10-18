@@ -1,0 +1,45 @@
+{
+  "tts": {
+    "model": "gemini-3.1-flash-tts-preview",
+    "voice": "Sulafat",
+    "style_prompt": "tts_style.md",
+    "hook_prompt": "tts_hook.md"
+  },
+  "narration": {
+    "_comment": "lead: カット開始から声が入るまで / tail: 声が終わってから次のカットまでの余白（秒）",
+    "lead_sec": 0.1,
+    "tail_sec": 0.25,
+    "max_cut_sec": 3.0,
+    "loudness_lufs": -16
+  },
+  "bgm": {
+    "reference_lufs": -16,
+    "level_base": 0.70,
+    "level_duck": 0.45,
+    "category_levels": {
+      "bright":    {"level_duck": 0.45, "level_base": 0.70},
+      "daily":     {"level_duck": 0.45, "level_base": 0.70},
+      "calm":      {"level_duck": 0.60, "level_base": 0.85},
+      "acoustic":  {"level_duck": 0.60, "level_base": 0.85},
+      "emotional": {"level_duck": 0.55, "level_base": 0.80},
+      "lofi":      {"level_duck": 0.55, "level_base": 0.80}
+    },
+    "categories_by_content_type": {
+      "before_after": ["bright", "lofi", "daily"],
+      "process": ["calm", "acoustic", "daily"],
+      "care_tips": ["bright", "daily"],
+      "stylist_story": ["emotional", "calm", "acoustic"],
+      "daily": ["daily", "lofi", "bright"]
+    },
+    "voice_eq": {"freq": 2000, "width_q": 0.8, "gain_db": -4},
+    "level_no_narration": 1.0,
+    "duck_attack_sec": 0.2,
+    "duck_release_sec": 0.3,
+    "merge_gap_sec": 0.8,
+    "fade_out_sec": 1.2
+  },
+  "master": {
+    "loudness_lufs": -14,
+    "true_peak_db": -1.5
+  }
+}

@@ -326,6 +326,12 @@ sequenceDiagram
 
 `n8n/reservation_email_workflow.json`（IMAP → 内部API）を追加。日次ワークフローは変更なし。
 
+## 13. SNS動画投稿（リール）— さんちょく管理 v2 からの移植
+
+「SNS投稿やリールを確認する画面」の要望に応え、さんちょく管理 v2 の Social Content Engine（台本AI・FFmpeg 縦動画・Gemini TTS・Instagram/YouTube/Threads 投稿）を `apps/reels` として移植し、美容師向けの5つの型（ビフォーアフター／施術のこだわり／ホームケア豆知識／スタイリストの思い／サロンの日常）に置き換えた。
+ボトムナビに「SNS」タブを追加し、文章の投稿（既存 `SnsPost`）には Instagram 風のプレビュー（フィード／ストーリーズ／リール台本タイムライン）を追加。
+顔・個人情報の扱い、必要な外部サービス、定期処理は `docs/REELS.md`。
+
 ## 11. 検証計画（指示書11）に対応するログ
 
 | 指標 | 取得元 |

@@ -33,7 +33,8 @@
 <section class="section">
   <div class="section-title"><h2>SNS投稿</h2></div>
   {% for p in sns_posts %}<a class="list-item" href="{% url 'drafts:sns_detail' p.pk %}"><span class="grow"><span class="badge {{ p.status|badge_class }}">{{ p.get_status_display }}</span> {{ p.get_purpose_display }}<div class="meta">{{ p.feed_text|truncatechars:50 }}</div></span><span class="chev">›</span></a>{% endfor %}
-  <a class="btn secondary" href="{% url 'drafts:sns_new' %}?karte={{ karte.pk }}">✨ この施術からSNS投稿を作る</a>
+  <div class="btn-row"><a class="btn secondary" href="{% url 'drafts:sns_new' %}?karte={{ karte.pk }}">✨ 投稿文を作る</a><a class="btn" href="{% url 'reels:start' %}?karte={{ karte.pk }}">🎬 動画（リール）を作る</a></div>
+  {% for rp in karte.reel_posts.all %}<a class="list-item mt" href="{% url 'reels:workspace' rp.pk %}"><span class="grow">🎬 {{ rp.theme_title }} <span class="badge">{{ rp.get_status_display }}</span></span><span class="chev">›</span></a>{% endfor %}
   <p class="muted tiny mt">{% if customer.story_ok %}ストーリー掲載OK：悩みと結果を一般化して使います{% else %}ストーリー掲載NG：施術内容のみで作ります{% endif %}。{% if customer.photo_ok %}写真OK{% if not customer.face_ok %}（顔出しNG）{% endif %}{% else %}写真NG{% endif %}。</p>
 </section>
 

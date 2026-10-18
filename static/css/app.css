@@ -265,3 +265,76 @@ details summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
 .countdown { font-variant-numeric: tabular-nums; font-weight: 700; }
 .installbar { background: var(--accent-soft); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 0.9rem; display: none; }
 .installbar.show { display: flex; align-items: center; gap: 10px; }
+
+/* ---- SNS動画（リール） ---- */
+.steps-bar { list-style: none; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 0; margin: 0 0 12px; }
+.steps-bar li { font-size: 0.72rem; font-weight: 700; text-align: center; padding: 8px 2px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); color: var(--text-muted); }
+.steps-bar li.done { background: var(--accent-soft); color: var(--accent-strong); border-color: transparent; }
+.steps-bar li.current { background: var(--accent); color: #fff; border-color: var(--accent); }
+.slot-card.done { border-color: #9fd3b4; }
+.avatar.ok { background: var(--ok-soft); color: var(--ok); }
+.asset-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.asset-thumb { position: relative; width: 64px; aspect-ratio: 9/16; border-radius: 8px; overflow: hidden; background: var(--surface-2); border: 1px solid var(--border); padding: 0; cursor: pointer; }
+.asset-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.asset-thumb.blocked img { filter: grayscale(1) brightness(0.6); }
+.asset-thumb .tag { position: absolute; left: 2px; bottom: 2px; font-size: 0.6rem; }
+.asset-thumb.picking { outline: 3px solid var(--accent); }
+.asset-actions { position: absolute; top: 0; right: 0; left: 0; display: flex; justify-content: space-between; padding: 2px 4px; background: rgba(0,0,0,0.45); }
+.asset-actions .linklike { color: #fff; font-size: 0.65rem; }
+.shot-column { display: flex; flex-direction: column; gap: 6px; }
+.scene-card textarea { min-height: 56px; padding: 8px 10px; }
+.scene-card label.tiny { display: block; margin-top: 6px; color: var(--text-muted); }
+.example-thumb { width: 64px; aspect-ratio: 9/16; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); margin-top: 8px; }
+.phone-frame { width: min(100%, 300px); margin: 0 auto 8px; aspect-ratio: 9/16; background: #111; border-radius: 18px; overflow: hidden; border: 6px solid #222; }
+.phone-frame video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.phone-empty { color: #999; display: flex; align-items: center; justify-content: center; height: 100%; }
+.take-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.take-row audio { height: 32px; flex: 1; min-width: 160px; }
+.take-record.recording { background: var(--danger-soft); color: var(--danger); }
+.guide-mini { width: 36px; aspect-ratio: 9/16; border: 1px solid var(--border); border-radius: 4px; position: relative; flex-shrink: 0; }
+.guide-mini span { position: absolute; border: 2px solid var(--accent); border-radius: 50%; }
+.guide-overlay { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to right, transparent 33%, rgba(255,255,255,0.35) 33%, rgba(255,255,255,0.35) 33.4%, transparent 33.4%, transparent 66%, rgba(255,255,255,0.35) 66%, rgba(255,255,255,0.35) 66.4%, transparent 66.4%), linear-gradient(to bottom, transparent 33%, rgba(255,255,255,0.35) 33%, rgba(255,255,255,0.35) 33.4%, transparent 33.4%, transparent 66%, rgba(255,255,255,0.35) 66%, rgba(255,255,255,0.35) 66.4%, transparent 66.4%); }
+.guide-overlay::after { content: ""; position: absolute; border: 3px solid rgba(255,255,255,0.9); border-radius: 50%; }
+.guide-closeup span, .guide-overlay.guide-closeup::after { left: 25%; top: 35%; width: 50%; height: 28%; }
+.guide-hands span, .guide-overlay.guide-hands::after { left: 20%; top: 45%; width: 60%; height: 30%; border-radius: 12px; }
+.guide-back span, .guide-overlay.guide-back::after { left: 30%; top: 15%; width: 40%; height: 60%; border-radius: 40% 40% 20% 20%; }
+.guide-mirror span, .guide-overlay.guide-mirror::after { left: 15%; top: 10%; width: 70%; height: 70%; border-radius: 10px; }
+.guide-tools span, .guide-overlay.guide-tools::after { left: 15%; top: 30%; width: 70%; height: 40%; border-radius: 10px; }
+.guide-wide span, .guide-overlay.guide-wide::after { left: 10%; top: 25%; width: 80%; height: 50%; border-radius: 6px; border-style: dashed; }
+.guide-overhead span, .guide-overlay.guide-overhead::after { left: 15%; top: 25%; width: 70%; height: 50%; border-radius: 6px; border-style: dashed; }
+.camera-modal { position: fixed; inset: 0; z-index: 100; background: #000; color: #fff; display: flex; flex-direction: column; }
+.camera-modal.flash .camera-view::before { content: ""; position: absolute; inset: 0; background: rgba(255,255,255,0.7); z-index: 2; }
+.camera-top { display: flex; gap: 10px; align-items: flex-start; padding: calc(env(safe-area-inset-top, 0px) + 10px) 12px 8px; }
+.camera-close { width: 40px; height: 40px; border-radius: 50%; border: 0; background: rgba(255,255,255,0.15); color: #fff; font-size: 1.1rem; }
+.camera-stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.camera-view { position: relative; aspect-ratio: 9/16; height: 100%; max-width: 100%; background: #000; overflow: hidden; }
+.camera-view video { width: 100%; height: 100%; object-fit: cover; }
+.camera-rec { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background: var(--danger); padding: 4px 12px; border-radius: 999px; font-weight: 700; font-size: 0.85rem; }
+.camera-error { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 20px; text-align: center; background: #000; font-weight: 700; }
+.camera-bottom { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px calc(env(safe-area-inset-bottom, 0px) + 16px); }
+.camera-mode { display: flex; background: rgba(255,255,255,0.15); border-radius: 999px; padding: 3px; }
+.camera-mode button { background: transparent; border: 0; color: #fff; padding: 8px 12px; border-radius: 999px; font-weight: 700; }
+.camera-mode button.active { background: #fff; color: #000; }
+.camera-shutter { width: 76px; height: 76px; border-radius: 50%; border: 4px solid #fff; background: transparent; display: flex; align-items: center; justify-content: center; }
+.camera-shutter span { display: block; width: 56px; height: 56px; border-radius: 50%; background: #fff; transition: all 0.15s; }
+.camera-shutter.video span { background: var(--danger); }
+.camera-shutter.recording span { width: 30px; height: 30px; border-radius: 6px; background: var(--danger); }
+.camera-right { min-width: 90px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.ig-card { max-width: 380px; margin: 0 auto 12px; background: #fff; color: #111; border: 1px solid #dbdbdb; border-radius: 8px; overflow: hidden; }
+.ig-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; font-size: 0.85rem; font-weight: 700; }
+.ig-head .avatar { width: 32px; height: 32px; font-size: 0.8rem; }
+.ig-media { aspect-ratio: 4/5; background: linear-gradient(135deg, #f6e3de, #b85c4a); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; }
+.ig-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ig-actions { padding: 8px 12px; font-size: 1.2rem; letter-spacing: 6px; }
+.ig-caption { padding: 0 12px 12px; font-size: 0.85rem; white-space: pre-wrap; line-height: 1.5; }
+.ig-caption .more { color: #8e8e8e; }
+.ig-tags { color: #00376b; }
+.story-frame { width: min(100%, 240px); margin: 0 auto 12px; aspect-ratio: 9/16; border-radius: 16px; background: linear-gradient(160deg, #2b2622, #b85c4a); color: #fff; display: flex; align-items: center; justify-content: center; padding: 24px; text-align: center; font-weight: 700; font-size: 1.05rem; line-height: 1.5; position: relative; overflow: hidden; }
+.story-frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.55; }
+.story-frame span { position: relative; text-shadow: 0 2px 8px rgba(0,0,0,0.6); }
+.reel-timeline { list-style: none; padding: 0; margin: 0; }
+.reel-timeline li { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+.reel-timeline .t { flex-shrink: 0; min-width: 64px; font-variant-numeric: tabular-nums; color: var(--accent-strong); font-weight: 700; }
+.bottom-nav.six { grid-template-columns: repeat(6, 1fr); }
+.bottom-nav.six a { font-size: 0.62rem; }
+.bottom-nav.six .dot { right: calc(50% - 16px); }

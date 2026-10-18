@@ -1,0 +1,33 @@
+{% extends "base.html" %}{% load tomoni %}
+{% block title %}動画をつくる | {{ APP_NAME }}{% endblock %}
+{% block page_title %}新しい動画{% endblock %}
+{% block back %}<a class="back" href="{% url 'reels:home' %}">‹ SNS</a>{% endblock %}
+{% block content %}
+{% if karte %}
+<div class="card flat">
+  <strong>{{ karte.customer.name }} ・ {{ karte.visited_on|jadate }}</strong>
+  <div class="muted tiny">{{ karte.menu_display }} ・ {{ karte.treatment_summary|truncatechars:60 }}</div>
+  <div class="consents mt">
+    <span class="badge {% if karte.customer.photo_ok %}ok{% else %}danger{% endif %}">写真{% if karte.customer.photo_ok %}OK{% else %}NG{% endif %}</span>
+    <span class="badge {% if karte.customer.face_ok %}ok{% else %}danger{% endif %}">顔出し{% if karte.customer.face_ok %}OK{% else %}NG{% endif %}</span>
+    <span class="badge {% if karte.customer.story_ok %}ok{% else %}danger{% endif %}">ストーリー{% if karte.customer.story_ok %}OK{% else %}NG{% endif %}</span>
+    <span class="badge">掲載できる写真 {{ usable_photos|length }}枚</span>
+  </div>
+</div>
+{% endif %}
+<form method="post" class="card">{% csrf_token %}
+  <div class="field"><label>投稿の型（おまかせでも大丈夫）</label>
+    <ul class="radio-list">
+      {% for radio in form.template_key %}<li>{{ radio.tag }}<label for="{{ radio.id_for_label }}"><strong>{{ radio.choice_label }}</strong>{% for k, t in templates.items %}{% if k == radio.data.value %} <span class="muted tiny">— {{ t.goal }}・{{ t.seconds.0 }}〜{{ t.seconds.1 }}秒</span>{% endif %}{% endfor %}</label></li>{% endfor %}
+    </ul>
+  </div>
+  <div class="field"><label for="{{ form.menu_items.id_for_label }}">{{ form.menu_items.label }}</label>{{ form.menu_items }}</div>
+  {% if karte %}
+    {% if karte.customer.story_ok %}<div class="check">{{ form.uses_story }}<label for="{{ form.uses_story.id_for_label }}">{{ form.uses_story.label }}</label></div>{% else %}<p class="muted tiny">このお客様はストーリー掲載NGのため、悩みは使わず施術内容だけで作ります。</p>{% endif %}
+    <div class="check">{{ form.import_photos }}<label for="{{ form.import_photos.id_for_label }}">{{ form.import_photos.label }}（{{ usable_photos|length }}枚）</label></div>
+  {% endif %}
+  <p class="muted tiny">お客様の名前・年齢・私生活は台本に使われません。顔が写った写真は顔出しOKのお客様のときだけ使えます。</p>
+  <button class="btn">撮影リストを見る</button>
+</form>
+<p class="muted tiny center">今月 {{ month_count }} / {{ profile.posts_per_month }} 本</p>
+{% endblock %}

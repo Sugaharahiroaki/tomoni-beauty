@@ -59,6 +59,14 @@ Repository → Settings → Environments → `production` に Secrets を登録:
 
 自動生成するリッチメニュー画像には日本語フォントが必要です。`setup_server.sh` は `fonts-noto-cjk` を入れます。別のフォントを使う場合は `.env` に `RICH_MENU_FONT_PATH=/path/to/font.ttc` を指定してください。
 
+## 3.2 SNS動画（リール）に必要なもの
+
+- `apt install ffmpeg fonts-noto-cjk`（`setup_server.sh` に含む）
+- `.env`: `GEMINI_API_KEY`（ナレーション）、`FIELD_ENCRYPTION_KEY`（接続トークンの暗号化鍵。`python -c "from cryptography.fernet import Fernet;print(Fernet.generate_key().decode())"` で生成）、`PUBLIC_MEDIA_BASE_URL=https://<ドメイン>/media`、`RENDER_WORK_DIR=/var/lib/tomoni/render_work`
+- 定期処理の登録（予約投稿・数値取り込み・日次処理）: `python manage.py setup_schedules`（qcluster が実行）
+- Nginx は `/media/` を Django に通し、`/protected-media/`（internal）で送り出す（`deploy/nginx/tomoni.conf`）
+- 外部サービスの申請手順は `docs/REELS.md` §6
+
 ## 4. 日次処理
 
 n8n（`n8n/README.md`）か cron:

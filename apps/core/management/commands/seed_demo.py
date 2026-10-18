@@ -207,4 +207,14 @@ class Command(BaseCommand):
         run_receipt_ocr(receipt.id)
         FilingProfile.objects.create(stylist=stylist, full_name="佐藤 美咲", full_name_kana="サトウ ミサキ", address="東京都渋谷区神宮前1-1-1", tax_office="渋谷", business_name="", opened_on=date(year, 4, 1), bookkeeping=FilingProfile.Bookkeeping.SIMPLE, books=["現金出納帳", "売掛帳", "経費帳"], start_blue_year=year)
 
+        # --- SNS動画（リール）: カルテの写真を取り込み、見本の台本まで作っておく ---
+        from apps.reels import services as reel_services
+        from apps.reels.ai import generate_script as generate_reel_script
+
+        reel = reel_services.start_post(stylist, template_key="before_after", karte=karte_today, uses_story=True, import_photos=True)
+        for name, slot in (("bowl.png", "bowl"), ("hands.png", "hands"), ("back.png", "after_back")):
+            reel_services.save_asset(reel, SimpleUploadedFile(name, _png((190 + len(slot) * 7, 150, 135)), content_type="image/png"), name, "image/png", 2000, "photo", slot)
+        generate_reel_script(reel)
+        reel_services.start_post(stylist, template_key="daily")  # 撮影中のもの
+
         self.stdout.write(self.style.SUCCESS(f"デモアカウントを作成しました: {DEMO_EMAIL} / {DEMO_PASSWORD}"))

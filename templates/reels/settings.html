@@ -1,0 +1,25 @@
+{% extends "base.html" %}{% load static tomoni %}
+{% block title %}SNS動画の設定 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}SNS動画の設定{% endblock %}
+{% block back %}<a class="back" href="{% url 'reels:home' %}">‹ SNS</a>{% endblock %}
+{% block content %}
+<div class="card">
+  <h3>投稿先をつなぐ</h3>
+  <div class="toggle-row"><div><strong>Instagram</strong><div class="tiny muted">{% if profile.instagram_connected %}@{{ profile.instagram_username }} ・ つながり {{ profile.instagram_token_expires_at|jadate }} まで（自動延長）{% else %}未接続（プロアカウントが必要）{% endif %}</div></div>
+    {% if profile.instagram_connected %}<form method="post" action="{% url 'reels:disconnect' 'instagram' %}">{% csrf_token %}<button class="btn sm ghost">解除</button></form>{% elif connect_available.instagram %}<a class="btn sm secondary" href="{% url 'reels:connect_start' 'instagram' %}">つなぐ</a>{% else %}<span class="badge">運営の設定待ち</span>{% endif %}</div>
+  <div class="toggle-row"><div><strong>YouTube</strong><div class="tiny muted">{% if profile.youtube_connected %}{{ profile.youtube_channel_title }}{% else %}未接続（チャンネルが必要）{% endif %}</div></div>
+    {% if profile.youtube_connected %}<form method="post" action="{% url 'reels:disconnect' 'youtube' %}">{% csrf_token %}<button class="btn sm ghost">解除</button></form>{% elif connect_available.youtube %}<a class="btn sm secondary" href="{% url 'reels:connect_start' 'youtube' %}">つなぐ</a>{% else %}<span class="badge">運営の設定待ち</span>{% endif %}</div>
+  <div class="toggle-row"><div><strong>Threads</strong><div class="tiny muted">{% if profile.threads_connected %}@{{ profile.threads_username }}{% else %}未接続{% endif %}</div></div>
+    {% if profile.threads_connected %}<form method="post" action="{% url 'reels:disconnect' 'threads' %}">{% csrf_token %}<button class="btn sm ghost">解除</button></form>{% elif connect_available.threads %}<a class="btn sm secondary" href="{% url 'reels:connect_start' 'threads' %}">つなぐ</a>{% else %}<span class="badge">運営の設定待ち</span>{% endif %}</div>
+  <p class="muted tiny mt">つないでいない投稿先は「お試し投稿」（記録のみ）になります。運営側の Meta / Google のアプリ設定は docs/REELS.md を参照。戻り先URL: <code>{{ callback_base }}&lt;instagram|youtube|threads&gt;/callback/</code></p>
+</div>
+<form method="post" class="card">{% csrf_token %}
+  {% include "_form.html" %}
+  {% if options.tts_available %}<button type="button" class="btn sm ghost" id="voice-preview" data-url="{% url 'reels:voice_preview' %}">この声で聞いてみる</button><audio id="voice-audio" controls style="display:none;width:100%" class="mt"></audio>{% else %}<p class="muted tiny">声の試聴とAIナレーションには GEMINI_API_KEY の設定が必要です（無い場合はテロップ＋BGMの動画になります）。</p>{% endif %}
+  <button class="btn mt">保存</button>
+</form>
+<div class="card flat tiny muted">
+  状態: AI台本 {% if options.ai_available %}利用可{% else %}お試し（見本の台本）{% endif %} ・ ナレーション {% if options.tts_available %}利用可{% else %}未設定{% endif %} ・ 動画作成（FFmpeg） {% if options.ffmpeg_available %}利用可{% else %}未インストール{% endif %}
+</div>
+{% endblock %}
+{% block scripts %}<script src="{% static 'js/reels.js' %}"></script>{% endblock %}

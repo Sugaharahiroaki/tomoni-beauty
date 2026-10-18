@@ -9,7 +9,8 @@ APP_DIR=/srv/tomoni-beauty
 DB_PASS="$(openssl rand -hex 16)"
 
 apt-get update
-apt-get install -y python3 python3-venv python3-pip git nginx postgresql postgresql-contrib certbot python3-certbot-nginx libpq-dev build-essential fonts-noto-cjk
+apt-get install -y python3 python3-venv python3-pip git nginx postgresql postgresql-contrib certbot python3-certbot-nginx libpq-dev build-essential fonts-noto-cjk ffmpeg
+mkdir -p /var/lib/tomoni/render_work && chown -R tomoni:tomoni /var/lib/tomoni 2>/dev/null || true
 
 id -u tomoni &>/dev/null || useradd --system --create-home --shell /bin/bash tomoni
 

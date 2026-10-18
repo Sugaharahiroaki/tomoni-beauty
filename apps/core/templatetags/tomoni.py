@@ -30,7 +30,7 @@ def badge_class(status: str) -> str:
 
 @register.filter
 def jadate(value) -> str:
-    """2026/10/18(土) 形式。"""
+    """10/18(土) 形式。"""
     if not value:
         return ""
     if hasattr(value, "tzinfo") and value.tzinfo is not None:
@@ -72,6 +72,30 @@ def route_label(route: str) -> str:
     return {"copy": "コピー送信", "reply": "Reply返信", "push": "Push送信"}.get(route, route or "")
 
 
+@register.filter
+def split(value: str, sep: str = ",") -> list:
+    return [v for v in (value or "").split(sep)]
+
+
+@register.filter
+def get_item(mapping, key):
+    """辞書から key の値を取る（テンプレートで dict[変数] をするため）。"""
+    if mapping is None:
+        return None
+    try:
+        return mapping.get(key) if hasattr(mapping, "get") else mapping[key]
+    except (KeyError, IndexError, TypeError):
+        try:
+            return mapping.get(str(key))
+        except Exception:  # noqa: BLE001
+            return None
+
+
+@register.filter
+def rows(value):
+    return []
+
+
 @register.simple_tag(takes_context=True)
 def active(context, *names) -> str:
     request = context.get("request")
@@ -79,6 +103,10 @@ def active(context, *names) -> str:
         return ""
     current = f"{request.resolver_match.namespace}:{request.resolver_match.url_name}"
     for n in names:
-        if current == n or (n.endswith(":*") and current.startswith(n[:-1])):
+        if current == n:
+            return "active"
+        if n.endswith(":*") and current.startswith(n[:-1]):
+            return "active"
+        if n.endswith("*") and current.startswith(n[:-1]):
             return "active"
     return ""

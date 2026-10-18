@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     "apps.lineapp",
     "apps.broadcasts",
     "apps.ledger",
+    "apps.reels",
 ]
 
 MIDDLEWARE = [
@@ -275,6 +276,28 @@ BROADCAST_EXCLUDE_RECENT_DAYS_DEFAULT = env_int("BROADCAST_EXCLUDE_RECENT_DAYS_D
 LINE_MULTICAST_CHUNK = 150
 # リッチメニュー画像に使う日本語フォント（無ければ候補を探索）
 RICH_MENU_FONT_PATH = env("RICH_MENU_FONT_PATH", "")
+
+# ---------------------------------------------------------------------------
+# SNS動画投稿（リール）: 台本=Claude、ナレーション=Gemini TTS、投稿=Instagram/YouTube/Threads
+# ---------------------------------------------------------------------------
+GEMINI_API_KEY = env("GEMINI_API_KEY", "")
+INSTAGRAM_APP_ID = env("INSTAGRAM_APP_ID", "")
+INSTAGRAM_APP_SECRET = env("INSTAGRAM_APP_SECRET", "")
+INSTAGRAM_GRAPH_VERSION = env("INSTAGRAM_GRAPH_VERSION", "v25.0")
+YOUTUBE_CLIENT_ID = env("YOUTUBE_CLIENT_ID", "")
+YOUTUBE_CLIENT_SECRET = env("YOUTUBE_CLIENT_SECRET", "")
+THREADS_APP_ID = env("THREADS_APP_ID", "")
+THREADS_APP_SECRET = env("THREADS_APP_SECRET", "")
+# Instagram・Threads が動画を取りに来る公開URL（既定: SITE_URL + /media）
+PUBLIC_MEDIA_BASE_URL = env("PUBLIC_MEDIA_BASE_URL", f"{SITE_URL}/media")
+# 動画を組み立てる途中のファイル（公開しない場所）
+RENDER_WORK_DIR = Path(env("RENDER_WORK_DIR") or (BASE_DIR / "render_work"))
+# 本番では「商用利用の条件を確認した」BGMだけを使う
+BGM_REQUIRE_LICENSE = env_bool("BGM_REQUIRE_LICENSE", not DEBUG)
+# よく見られる時間（予約投稿の「おすすめ」）
+SOCIAL_BEST_HOURS = env("SOCIAL_BEST_HOURS", "12,19")
+# /media/ を Django で認証したあと Nginx に送り出させる（X-Accel-Redirect）。false なら Django が直接返す
+MEDIA_ACCEL_REDIRECT = env_bool("MEDIA_ACCEL_REDIRECT", not DEBUG)
 
 # ---------------------------------------------------------------------------
 # 税務（第2・3段階）— すべて概算用の既定値。設定画面で美容師ごとに変更可

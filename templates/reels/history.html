@@ -1,0 +1,16 @@
+{% extends "base.html" %}{% load tomoni %}
+{% block title %}投稿の記録 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}投稿の記録{% endblock %}
+{% block back %}<a class="back" href="{% url 'reels:home' %}">‹ SNS</a>{% endblock %}
+{% block content %}
+<p class="muted tiny">投稿した動画と、見られた回数・いいね・保存の数です（投稿の数時間後から6時間ごとに取り込み、30日分）。どの型がよく見られているかが分かります。</p>
+{% if best %}<div class="card accent"><div class="muted tiny">いちばん見られた投稿</div><a href="{% url 'reels:workspace' best.pk %}"><strong>{{ best.theme_title }}</strong></a><div>再生 <strong style="font-size:1.4rem">{{ best_views }}</strong> 回</div></div>{% endif %}
+{% if by_template %}<div class="card"><strong class="tiny">型ごとの平均の再生回数</strong><table class="simple mt"><tbody>{% for t in by_template %}<tr><td style="text-align:left">{{ t.label }}（{{ t.count }}本）</td><td>{{ t.avg }}回</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+{% for r in rows %}
+<a class="list-item" href="{% url 'reels:workspace' r.post.pk %}">
+  {% if r.post.thumbnail %}<img src="{{ r.post.thumbnail.url }}" alt="" style="width:48px;height:85px;object-fit:cover;border-radius:8px">{% endif %}
+  <span class="grow"><strong>{{ r.post.theme_title }}</strong><div class="meta">{{ r.post.published_at|jadate }} ・ {{ r.post.template_label }}</div>
+    {% for m in r.metrics %}<div class="tiny"><span class="badge">{{ m.platform_label }}</span> 再生 {{ m.views|default:"—" }} ・ いいね {{ m.likes|default:"—" }} ・ 保存 {{ m.saves|default:"—" }}</div>{% empty %}<div class="tiny muted">数値はまだありません</div>{% endfor %}</span>
+</a>
+{% empty %}<div class="empty"><div class="big">📊</div><p>まだ投稿がありません</p><a class="btn" href="{% url 'reels:start' %}">動画をつくる</a></div>{% endfor %}
+{% endblock %}

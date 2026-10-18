@@ -35,7 +35,33 @@
 <div class="card ok tiny">✅ 個人情報チェックを通過しました{% if post.pii_check.llm_checked %}（AIによる二重チェック済み）{% endif %}</div>
 {% endif %}
 
-{% if post.photos.exists %}<div class="photo-grid mb">{% for p in post.photos.all %}<div class="photo"><img src="{{ p.image.url }}" alt=""></div>{% endfor %}</div>{% endif %}
+{% with first=post.photos.all|first %}
+<div class="chips mb" id="preview-tabs"><button type="button" class="chip active" data-preview="feed">フィードの見え方</button><button type="button" class="chip" data-preview="story">ストーリーズ</button><button type="button" class="chip" data-preview="reel">リール台本</button></div>
+<div data-preview-panel="feed">
+  <div class="ig-card">
+    <div class="ig-head"><span class="avatar">{{ stylist.display_name|slice:":1" }}</span><span>{{ stylist.salon_name|default:stylist.display_name }}</span></div>
+    <div class="ig-media">{% if first %}<img src="{{ first.image.url }}" alt="">{% else %}写真なし（文章のみ）{% endif %}</div>
+    <div class="ig-actions">♡ ◯ ⇗</div>
+    <div class="ig-caption"><strong>{{ stylist.salon_name|default:stylist.display_name }}</strong> {{ post.feed_text|truncatechars:125 }}{% if post.feed_text|length > 125 %}<span class="more"> …続きを読む</span>{% endif %}
+<span class="ig-tags">{{ post.hashtags_text }}</span></div>
+  </div>
+  {% if post.photos.count > 1 %}<div class="photo-grid mb">{% for p in post.photos.all %}<div class="photo"><img src="{{ p.image.url }}" alt=""></div>{% endfor %}</div>{% endif %}
+</div>
+<div data-preview-panel="story" style="display:none">
+  <div class="story-frame">{% if first %}<img src="{{ first.image.url }}" alt="">{% endif %}<span>{{ post.story_text }}</span></div>
+  <p class="center muted tiny">ストーリーズに写真を置き、この文字を重ねるイメージです。</p>
+</div>
+<div data-preview-panel="reel" style="display:none">
+  <div class="card"><strong class="tiny">リール台本（タイムライン）</strong>
+    <ul class="reel-timeline mt">{% for line in post.reel_script.splitlines %}{% if line.strip %}<li>{% if line|slice:":1" == "[" %}<span class="t">{{ line|split:"]"|first|slice:"1:" }}</span><span>{{ line|split:"]"|last }}</span>{% else %}<span class="t"></span><span>{{ line }}</span>{% endif %}</li>{% endif %}{% endfor %}</ul>
+    {% if post.karte %}<a class="btn secondary mt" href="{% url 'reels:start' %}?karte={{ post.karte.pk }}">🎬 この施術の写真から動画（リール）をつくる</a>{% endif %}
+  </div>
+</div>
+{% endwith %}
+<script>
+document.querySelectorAll('#preview-tabs [data-preview]').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('#preview-tabs [data-preview]').forEach(function(x){x.classList.remove('active')});b.classList.add('active');document.querySelectorAll('[data-preview-panel]').forEach(function(p){p.style.display=p.getAttribute('data-preview-panel')===b.getAttribute('data-preview')?'':'none'})})});
+</script>
+<style>.chip.active{background:var(--accent);color:#fff}</style>
 
 <form method="post" action="{% url 'drafts:sns_update' post.pk %}">{% csrf_token %}
   <section class="section">

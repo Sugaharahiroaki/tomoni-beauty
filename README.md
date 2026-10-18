@@ -5,7 +5,10 @@
 
 第1段階（MVP）に加え、第2段階（一斉・セグメント配信、リッチメニュー、予約通知メールの取り込み、空き枠、報酬明細・レシートのOCR、経費集計、簡易簿記の帳簿、開業届・青色申告承認申請書の補助、手取り見込み）と第3段階（複式簿記・決算書転記・会計ソフト向けCSV）まで実装しています。税務機能は記録・集計・書類作成の補助に留め、最終確認は税理士が行う前提です。
 
+さらに、さんちょく管理 v2 の SNS 動画エンジンを移植し、写真・短い動画から **テロップ・ナレーション・BGM 付きの縦動画（リール）を作って Instagram / YouTube ショート / Threads に予約投稿** できます（[docs/REELS.md](docs/REELS.md)）。
+
 - 計画と実装の説明: [docs/PLAN.md](docs/PLAN.md)
+- SNS動画（リール）の設計と外部サービスの準備: [docs/REELS.md](docs/REELS.md)
 - 経費・帳簿・申告補助の設計: [docs/LEDGER.md](docs/LEDGER.md)
 - ホットペッパー連携の調査: [docs/HOTPEPPER.md](docs/HOTPEPPER.md)
 - LINE の通数・送信ルート: [docs/LINE.md](docs/LINE.md)
@@ -44,6 +47,9 @@ pytest
 | OpenAI 音声認識 | 音声メモ・インタビューの文字起こし | `OPENAI_API_KEY`, `TRANSCRIPTION_MODEL` |
 | LINE Messaging API | 美容師ごとのチャネル（設定画面から登録） | — |
 | n8n（任意） | 日次処理の起動・通知メール | `INTERNAL_API_TOKEN` |
+| FFmpeg ＋ 日本語フォント | SNS動画の作成（サーバーに必須） | `FFMPEG_BIN`, `ENGINE_FONT` |
+| Google Gemini | 動画のナレーション（任意） | `GEMINI_API_KEY` |
+| Meta / Google のアプリ | Instagram・YouTube・Threads への自動投稿（任意。無ければお試し投稿） | `INSTAGRAM_APP_ID` 等 |
 
 ## 設計上の約束（指示書 9 の必須ルール）
 

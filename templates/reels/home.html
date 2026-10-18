@@ -1,0 +1,42 @@
+{% extends "base.html" %}{% load tomoni %}
+{% block title %}SNS | {{ APP_NAME }}{% endblock %}
+{% block page_title %}SNS投稿{% endblock %}
+{% block topaction %}<a class="action" href="{% url 'reels:settings' %}">設定</a>{% endblock %}
+{% block content %}
+<div class="card accent">
+  <div class="row between"><strong>動画（リール）をつくる</strong><span class="badge">{{ month_count }} / {{ profile.posts_per_month }} 本（今月）</span></div>
+  <p class="tiny" style="margin:4px 0 8px">写真か短い動画を数枚撮るだけで、テロップ・ナレーション・BGM付きの縦動画（15〜30秒）と投稿文ができ、Instagramリール・YouTubeショート・Threads に予約投稿できます。</p>
+  <a class="btn" href="{% url 'reels:start' %}">🎬 新しい動画をつくる</a>
+  {% if not options.ffmpeg_available %}<p class="tiny mt" style="color:var(--danger)">このサーバーに FFmpeg が無いため、動画の作成はできません（撮影・台本までは試せます）。</p>{% endif %}
+  {% if not profile.instagram_connected and not profile.youtube_connected and not profile.threads_connected %}<p class="tiny muted mt">投稿先をまだつないでいないので「お試し投稿」になります。<a href="{% url 'reels:settings' %}">設定</a>からつなげます。</p>{% endif %}
+</div>
+
+<section class="section">
+  <div class="section-title"><h2>最近の施術から</h2><a href="{% url 'drafts:sns_list' %}">文章の投稿</a></div>
+  {% for k in recent_kartes %}
+  <div class="list-item"><span class="grow">{{ k.customer.name }} <span class="muted tiny">{{ k.visited_on|jadate }}</span><div class="meta">{{ k.menu_display }}</div></span>
+    <a class="btn sm" href="{% url 'reels:start' %}?karte={{ k.pk }}">動画</a>
+    <a class="btn sm ghost" href="{% url 'drafts:sns_new' %}?karte={{ k.pk }}">文章</a></div>
+  {% empty %}<div class="card flat muted">カルテがまだありません。施術メモを録音すると、ここから投稿を作れます。</div>{% endfor %}
+</section>
+
+<section class="section">
+  <div class="section-title"><h2>つくりかけの動画</h2></div>
+  {% for p in in_progress %}
+  <a class="list-item" href="{% url 'reels:workspace' p.pk %}">
+    {% if p.thumbnail %}<img src="{{ p.thumbnail.url }}" alt="" style="width:44px;height:78px;object-fit:cover;border-radius:8px">{% else %}<span class="avatar">🎬</span>{% endif %}
+    <span class="grow"><strong>{{ p.theme_title|default:p.template_label }}</strong> <span class="badge {% if p.status == 'FAILED' %}danger{% elif p.status == 'READY' or p.status == 'REVIEW' %}accent{% elif p.is_busy %}warn{% endif %}">{{ p.get_status_display }}</span><div class="meta">{{ p.template_label }} ・ {{ p.created_at|jadate }}</div></span><span class="chev">›</span>
+  </a>
+  {% empty %}<div class="card flat muted">つくりかけの動画はありません</div>{% endfor %}
+</section>
+
+<section class="section">
+  <div class="section-title"><h2>投稿した動画</h2><a href="{% url 'reels:history' %}">記録と数字</a></div>
+  {% for p in published %}<a class="list-item" href="{% url 'reels:workspace' p.pk %}">{% if p.thumbnail %}<img src="{{ p.thumbnail.url }}" alt="" style="width:44px;height:78px;object-fit:cover;border-radius:8px">{% endif %}<span class="grow"><strong>{{ p.theme_title }}</strong><div class="meta">{{ p.published_at|jadatetime }}</div></span><span class="chev">›</span></a>{% empty %}<div class="card flat muted">まだ投稿していません</div>{% endfor %}
+</section>
+
+<section class="section">
+  <div class="section-title"><h2>文章の投稿（フィード・ストーリーズ・リール台本）</h2><a href="{% url 'drafts:sns_list' %}">すべて</a></div>
+  {% for p in text_posts %}<a class="list-item" href="{% url 'drafts:sns_detail' p.pk %}"><span class="grow"><span class="badge {{ p.status|badge_class }}">{{ p.get_status_display }}</span> {{ p.get_purpose_display }}<div class="meta">{{ p.feed_text|truncatechars:50|default:"（生成中）" }}</div></span><span class="chev">›</span></a>{% empty %}<div class="card flat muted">まだありません</div>{% endfor %}
+</section>
+{% endblock %}
