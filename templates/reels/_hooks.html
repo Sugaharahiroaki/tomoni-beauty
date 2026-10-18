@@ -1,0 +1,32 @@
+{% load tomoni %}
+{% if post.status == "HOOKING" %}
+<div class="card" data-poll-url="{% url 'reels:status' post.pk %}"><div class="center" style="padding:16px 0"><div style="font-size:2.2rem">✨</div><strong>最初の2秒の一言（フック）を考えています</strong><p class="muted tiny">30秒ほどかかります。この画面のまま、お待ちください。</p></div><div class="progress"><div style="width:40%"></div></div></div>
+{% else %}
+{% for n in post.notes %}<div class="card warn tiny">{{ n }}</div>{% endfor %}
+<div class="card info tiny"><strong>最初の2秒の一言を選んでください。</strong> ここで指を止めてもらえるかが決まります。<div class="mt">型：{{ post.type_label }} ・ テーマ：{{ post.theme|default:"（得意な悩みを設定すると入ります）" }} ・ 出来上がり：{{ post.format_label }}</div></div>
+{% if hooks %}
+<form method="post" action="{% url 'reels:choose_hook' post.pk %}">{% csrf_token %}
+  {% for h in hooks %}
+  <label class="card hook-card {% if h.hype %}warn{% endif %}">
+    <div class="row" style="align-items:flex-start"><input type="radio" name="hook" value="{{ forloop.counter0 }}" {% if forloop.first and not h.hype %}checked{% endif %}>
+      <div class="grow"><span class="badge">{{ h.label }}</span>
+        <div class="hook-text">{{ h.text }}</div>
+        {% if h.visual %}<div class="tiny muted">最初の映像：{{ h.visual }}</div>{% endif %}
+        {% if h.hype %}<div class="tiny" style="color:var(--danger)">使えない表現（{{ h.hype|join:"・" }}）が入っています。別の案を選ぶか、下で書き直してください。</div>{% endif %}
+      </div>
+    </div>
+  </label>
+  {% endfor %}
+  <div class="card"><label class="tiny" for="custom_text">自分で書く（20字くらい。書くとこちらを使います）</label><input type="text" id="custom_text" name="custom_text" maxlength="60" placeholder="例: 色落ちが早い人へ"></div>
+  <div class="sticky-actions">
+    <button class="btn">✨ このフックで作る</button>
+    <p class="center muted tiny mt">{% if post.output_format == "reel" %}台本を作って、そのまま動画にします（2〜3分）{% else %}文章を作ります（30秒ほど）{% endif %}</p>
+  </div>
+</form>
+<form method="post" action="{% url 'reels:hooks_regenerate' post.pk %}" class="mt">{% csrf_token %}<button class="btn ghost" {% if not regenerations_left %}disabled{% endif %}>フックを作り直す（あと {{ regenerations_left }} 回）</button></form>
+{% else %}
+<div class="card danger tiny">フックがまだありません。</div>
+<form method="post" action="{% url 'reels:hooks_regenerate' post.pk %}">{% csrf_token %}<button class="btn">フックを作る</button></form>
+{% endif %}
+<a class="btn ghost mt" href="?step=type">‹ 型を選び直す</a>
+{% endif %}

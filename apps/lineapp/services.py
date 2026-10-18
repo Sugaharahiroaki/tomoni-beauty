@@ -189,7 +189,7 @@ def suggest_reply_for_inbound(inbound_id: int):
     for m in InboundMessage.objects.filter(customer=customer).exclude(pk=inbound.pk).order_by("-received_at")[:3]:
         history.append({"who": "お客様", "text": m.display_text[:200]})
     try:
-        result = ai_services.suggest_reply(inbound.text, style_for(stylist), stylist.has_hotpepper, customer.context_for_ai(), list(reversed(history)))
+        result = ai_services.suggest_reply(inbound.text, style_for(stylist), stylist.has_hotpepper, customer.context_for_ai(), list(reversed(history)), stylist.menu_prompt_text())
     except AIError as exc:
         inbound.suggestion_status = InboundMessage.SuggestionStatus.FAILED
         inbound.note_for_stylist = str(exc)

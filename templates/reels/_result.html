@@ -1,0 +1,137 @@
+{% load tomoni %}
+{% if post.status == "SCRIPTING" %}
+<div class="card" data-poll-url="{% url 'reels:status' post.pk %}"><div class="center" style="padding:16px 0"><div style="font-size:2.2rem">✨</div><strong>{% if post.output_format == "reel" %}AIが素材を見ながら台本を書いています{% else %}AIが文章を書いています{% endif %}</strong><p class="muted tiny">{% if post.output_format == "reel" %}台本ができると、そのまま動画を作ります（合わせて2〜3分）。{% else %}30秒ほどかかります。{% endif %}この画面を閉じても大丈夫です。</p></div><div class="progress"><div style="width:50%"></div></div></div>
+{% elif post.status == "RENDERING" %}
+<div class="card" data-poll-url="{% url 'reels:status' post.pk %}"><div class="center" style="padding:16px 0"><div style="font-size:2.2rem">🎬</div><strong>動画をつくっています</strong><p class="muted tiny">2〜3分でできあがります。この画面を閉じても大丈夫です（できあがると「SNS」の一覧に出ます）。</p></div><div class="progress"><div style="width:60%"></div></div></div>
+{% else %}
+{% for n in post.notes %}<div class="card warn tiny">{{ n }}</div>{% endfor %}
+{% if post.status == "SKIPPED" %}<div class="card flat tiny">スキップした投稿です（記録として残しています）。</div>{% endif %}
+{% if post.status == "FAILED" and post.output_format == "reel" and not post.video %}
+<div class="card danger"><strong>動画をうまく作れませんでした。</strong><p class="tiny body-text">{{ post.error }}</p></div>
+<div class="btn-row"><form method="post" action="{% url 'reels:render' post.pk %}">{% csrf_token %}<button class="btn">もう一度つくる</button></form><a class="btn secondary" href="?edit=1">台本を直す</a></div>
+{% endif %}
+
+{% if post.pii_errors or post.hype_errors or post.caption_check.missing %}
+<div class="card {% if post.pii_errors or post.hype_errors %}danger{% else %}warn{% endif %} tiny">
+  {% if post.pii_errors %}<div><strong>お客様の個人情報の可能性：</strong>{% for f in post.pii_errors %}「{{ f.text }}」（{{ f.field }}）{% endfor %}。直すまで投稿済みにできません。</div>{% endif %}
+  {% if post.hype_errors %}<div><strong>誇大表現：</strong>{% for f in post.hype_errors %}「{{ f.text }}」（{{ f.field }}）{% endfor %}。直すまで投稿済みにできません。</div>{% endif %}
+  {% if post.caption_check.missing %}<div>キャプションに足りない要素：{% for m in post.caption_check.missing %}{{ m.label }}{% if not forloop.last %}・{% endif %}{% endfor %}（分かる範囲で足すと予約につながりやすくなります）</div>{% endif %}
+</div>
+{% endif %}
+
+{% if post.output_format == "reel" %}
+<div class="phone-frame">
+  {% if post.video %}<video src="{{ post.video.url }}" poster="{% if post.thumbnail %}{{ post.thumbnail.url }}{% endif %}" controls playsinline></video>{% else %}<div class="phone-empty">動画はまだありません</div>{% endif %}
+</div>
+{% if post.duration_sec %}<p class="center muted tiny">{{ post.duration_sec|floatformat:1 }}秒{% if post.video %} ・ <a href="{{ post.video.url }}" download>動画を保存</a>{% endif %}</p>{% endif %}
+{% endif %}
+
+<div class="tabs" data-tabs>
+  <button type="button" class="tab active" data-tab="caption">キャプション</button>
+  {% if post.output_format == "reel" %}<button type="button" class="tab" data-tab="telops">テロップ</button>{% elif post.output_format == "feed" %}<button type="button" class="tab" data-tab="slides">各枚の文字</button>{% else %}<button type="button" class="tab" data-tab="stories">ストーリーズ</button>{% endif %}
+  <button type="button" class="tab" data-tab="hashtags">ハッシュタグ</button>
+  <button type="button" class="tab" data-tab="cover">表紙</button>
+</div>
+<form method="post" action="{% url 'reels:content_update' post.pk %}" id="content-form">{% csrf_token %}
+  <div class="card tab-panel" data-panel="caption">
+    <label class="tiny" for="ig_caption">キャプション{% if post.hook_type_label %} <span class="muted">（フック：{{ post.hook_type_label }}）</span>{% endif %}</label>
+    <textarea id="ig_caption" name="ig_caption" rows="9">{{ post.ig_caption }}</textarea>
+    {% if post.output_format == "reel" and post.narration_mode == "ai" and post.ai_label %}<p class="muted tiny">投稿時に「{{ ai_notice }}」が付きます。</p>{% endif %}
+    <div class="btn-row mt"><button type="button" class="btn sm secondary" data-copy-source="#ig_caption">キャプションをコピー</button><button type="button" class="btn sm ghost" data-copy-source="#caption-with-tags">ハッシュタグ付きでコピー</button></div>
+    <textarea id="caption-with-tags" hidden readonly>{{ post.ig_caption }}
+
+{{ hashtags_text }}</textarea>
+  </div>
+
+  {% if post.output_format == "reel" %}
+  <div class="card tab-panel" data-panel="telops" hidden>
+    <strong class="tiny">テロップ（動画に入っている文字）</strong>
+    <ol class="mt" style="padding-left:20px">{% for t in post.telops %}<li class="tiny">{{ t|linebreaksbr }}</li>{% endfor %}</ol>
+    {% if post.script.cta.text %}<p class="tiny muted">最後の画面：{{ post.script.cta.title }}／{{ post.script.cta.text }}</p>{% endif %}
+    <a class="btn sm ghost" href="?edit=1">✏️ 台本・声・BGMを直す</a>
+  </div>
+  {% elif post.output_format == "feed" %}
+  <div class="card tab-panel" data-panel="slides" hidden>
+    <strong class="tiny">各枚の文字（1枚目＝誰の何の悩みか／最後＝料金・所要時間・予約）</strong>
+    {% for s in post.carousel %}
+    <div class="slide-row mt"><span class="avatar">{{ forloop.counter }}</span><div class="grow"><input type="text" name="slide_title_{{ forloop.counter0 }}" value="{{ s.title }}" maxlength="40" placeholder="大きい文字"><textarea name="slide_text_{{ forloop.counter0 }}" rows="2" maxlength="200" placeholder="補足">{{ s.text }}</textarea></div></div>
+    {% endfor %}
+    <button type="button" class="btn sm secondary mt" data-copy-source="#slides-all">各枚の文字をまとめてコピー</button>
+    <textarea id="slides-all" hidden readonly>{% for s in post.carousel %}{{ forloop.counter }}枚目：{{ s.title }}
+{{ s.text }}
+
+{% endfor %}</textarea>
+  </div>
+  {% else %}
+  <div class="card tab-panel" data-panel="stories" hidden>
+    <strong class="tiny">ストーリーズ（短文＋スタンプ案）</strong>
+    {% for s in post.stories %}
+    <div class="slide-row mt"><span class="avatar">{{ forloop.counter }}</span><div class="grow"><textarea name="story_text_{{ forloop.counter0 }}" rows="2" maxlength="120">{{ s.text }}</textarea>
+      <div class="row mt"><select name="story_sticker_type_{{ forloop.counter0 }}" style="width:auto">{% for k, label in stickers %}<option value="{{ k }}" {% if s.sticker.type == k %}selected{% endif %}>{{ label }}スタンプ</option>{% endfor %}</select><input type="text" name="story_sticker_text_{{ forloop.counter0 }}" value="{{ s.sticker.text }}" maxlength="60" placeholder="スタンプの文" class="grow"></div></div></div>
+    {% endfor %}
+    {% if link_url %}<div class="card flat tiny mt">リンクスタンプ用URL（クリックを数えます{% if link_clicks %}・これまで {{ link_clicks }} 回{% endif %}）<input type="text" id="story-link" value="{{ link_url }}" readonly class="mt"><button type="button" class="btn sm ghost mt" data-copy-source="#story-link">URLをコピー</button></div>{% endif %}
+    <button type="button" class="btn sm secondary mt" data-copy-source="#stories-all">文をまとめてコピー</button>
+    <textarea id="stories-all" hidden readonly>{% for s in post.stories %}{{ forloop.counter }}枚目：{{ s.text }}{% if s.sticker.type != "none" %}（{{ s.sticker.label }}スタンプ：{{ s.sticker.text }}）{% endif %}
+
+{% endfor %}</textarea>
+  </div>
+  {% endif %}
+
+  <div class="card tab-panel" data-panel="hashtags" hidden>
+    <label class="tiny" for="hashtags">ハッシュタグ（スペース区切り）</label>
+    <input type="text" id="hashtags" name="hashtags" value="{{ hashtags_text }}">
+    <button type="button" class="btn sm secondary mt" data-copy-source="#hashtags">コピー</button>
+  </div>
+  <div class="card tab-panel" data-panel="cover" hidden>
+    <label class="tiny" for="cover_text">表紙の文字（1枚目・サムネイルに載せる言葉）</label>
+    <input type="text" id="cover_text" name="cover_text" value="{{ post.cover_text|default:post.selected_hook.text }}" maxlength="60">
+    <button type="button" class="btn sm secondary mt" data-copy-source="#cover_text">コピー</button>
+  </div>
+  {% if post.status != "PUBLISHED" and post.status != "SKIPPED" %}<button class="btn secondary">保存してチェックをやり直す</button>{% endif %}
+</form>
+
+{% if post.output_format == "reel" %}
+<div class="chips mb mt">{% for key, label, on, connected in targets %}{% if on %}<span class="badge {% if connected %}ok{% endif %}">{{ label }}{% if not connected %}（お試し）{% endif %}{% with r=post.publish_result|get_item:key %}{% if r.id %} ✓{% endif %}{% endwith %}</span>{% endif %}{% endfor %}</div>
+{% endif %}
+
+{% if post.status == "READY" or post.status == "FAILED" %}
+<div class="card">
+  <strong>投稿する</strong>
+  {% if post.output_format == "reel" and post.video %}
+  <p class="muted tiny">よく見られる時間（お昼・夜）に予約するのがおすすめです。つないでいない投稿先は「お試し」で、記録だけ残ります。</p>
+  <form method="post" action="{% url 'reels:schedule' post.pk %}" class="btn-group-vertical">{% csrf_token %}
+    <button class="btn" name="when" value="auto">⏰ おすすめの時間に予約する</button>
+    <button class="btn secondary" name="when" value="now">今すぐ投稿する</button>
+    <div class="row"><input type="datetime-local" name="at" class="grow"><button class="btn sm ghost" name="when" value="custom">この日時で予約</button></div>
+  </form>
+  <p class="muted tiny mt">自分で投稿するときは、動画を保存してキャプションをコピーし、Instagramに貼ってください。</p>
+  {% else %}
+  <p class="muted tiny">各タブの「コピー」でInstagramに貼り付けて投稿し、終わったら「投稿済みにする」を押してください。{% if usable_ids %}写真を動かしてテロップと声を付けた動画にもできます（下の「動画にする」）。{% endif %}</p>
+  {% endif %}
+  <div class="btn-row mt">
+    <form method="post" action="{% url 'reels:mark_posted' post.pk %}">{% csrf_token %}<button class="btn {% if post.output_format == 'reel' and post.video %}secondary{% endif %}" {% if not can_post.0 %}disabled title="{{ can_post.1 }}"{% endif %}>✅ 投稿済みにする</button></form>
+    <form method="post" action="{% url 'reels:skip' post.pk %}" data-confirm="この投稿をスキップします（型のおすすめの参考として記録されます）。よろしいですか？">{% csrf_token %}<button class="btn ghost">スキップ</button></form>
+  </div>
+  <div class="btn-row mt">
+    {% if post.output_format == "reel" %}<a class="btn ghost" href="?edit=1">✏️ 台本・声・BGMを直して作り直す</a>{% elif usable_ids and options.ffmpeg_available %}<form method="post" action="{% url 'reels:content_to_reel' post.pk %}">{% csrf_token %}<button class="btn secondary">🎬 この内容で動画にする（2〜3分）</button></form>{% endif %}
+    <form method="post" action="{% url 'reels:content_regenerate' post.pk %}">{% csrf_token %}<button class="btn ghost">同じフックでAIに作り直させる</button></form>
+  </div>
+</div>
+{% elif post.status == "SCHEDULED" %}
+<div class="card ok"><strong>{{ post.scheduled_at|jadatetime }} に投稿します</strong><p class="tiny">時間になると自動で投稿されます（サーバーの定期処理が動いている必要があります）。</p><form method="post" action="{% url 'reels:cancel_schedule' post.pk %}">{% csrf_token %}<button class="btn sm secondary">予約をやめる</button></form></div>
+{% elif post.status == "PUBLISHED" %}
+<div class="card ok"><strong>{{ post.published_at|jadatetime }} に投稿しました</strong>
+  {% if metrics %}<div class="stat-grid mt">{% for m in metrics %}<div class="stat"><div class="label">{{ m.platform_label }}</div><div class="tiny">再生 {{ m.views|default:"—" }} ・ いいね {{ m.likes|default:"—" }} ・ 保存 {{ m.saves|default:"—" }} ・ コメント {{ m.comments|default:"—" }}</div><div class="tiny muted">{{ m.fetched_at|jadatetime }}時点</div></div>{% endfor %}</div>{% endif %}
+</div>
+<div class="card">
+  <strong class="tiny">成果を記録する（Instagramのインサイトを見て、分かる分だけ）</strong>
+  <form method="post" action="{% url 'reels:metrics_update' post.pk %}" class="mt">{% csrf_token %}
+    <div class="metric-grid">{% for key, label, value in metric_fields %}<label class="tiny">{{ label }}<input type="number" name="{{ key }}" min="0" inputmode="numeric" value="{{ value|default_if_none:'' }}"></label>{% endfor %}</div>
+    {% if link_url %}<p class="tiny muted mt">計測リンクのクリック（自動）：{{ link_clicks }} 回</p>{% endif %}
+    <input type="text" name="metrics_note" value="{{ post.metrics_note }}" maxlength="200" placeholder="メモ（例: 2日目にDM1件）" class="mt">
+    <button class="btn sm secondary mt">記録する</button>
+    {% if post.metrics_updated_at %}<p class="tiny muted mt">最終記録 {{ post.metrics_updated_at|jadatetime }}</p>{% endif %}
+  </form>
+</div>
+{% endif %}
+{% endif %}

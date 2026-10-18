@@ -6,13 +6,14 @@ from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
 from django.http import HttpResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from apps.core.decorators import stylist_required
 
-from .forms import AccountDeleteForm, LoginForm, SignupForm, StylistBasicForm
-from .models import Stylist
+from .forms import AccountDeleteForm, LoginForm, MenuBulkForm, MenuItemForm, SignupForm, StylistBasicForm
+from .menus import add_menus_from_text
+from .models import MenuItem, Stylist
 
 
 def signup(request):
@@ -94,6 +95,9 @@ def stylist_settings(request):
     form = StylistBasicForm(request.POST or None, instance=request.stylist)
     if request.method == "POST" and form.is_valid():
         form.save()
+        from apps.broadcasts.auto_slots import sync_auto_slots
+
+        sync_auto_slots(request.stylist)
         messages.success(request, "保存しました")
         return redirect("core:settings_menu")
     return render(request, "accounts/stylist_settings.html", {"form": form})
@@ -121,6 +125,7 @@ def export_data(request):
     stylist = request.stylist
     payload = {
         "stylist": {"display_name": stylist.display_name, "salon_name": stylist.salon_name, "hotpepper_url": stylist.hotpepper_url},
+        "menus": list(stylist.menus.values("category", "name", "price", "price_from", "target", "minutes", "note", "is_active")),
         "customers": list(
             Customer.objects.filter(stylist=stylist).values(
                 "id", "name", "kana", "line_user_id", "contact_ok", "photo_ok", "face_ok", "story_ok", "memo", "created_at"
@@ -138,3 +143,79 @@ def export_data(request):
     response = HttpResponse(body, content_type="application/json; charset=utf-8")
     response["Content-Disposition"] = 'attachment; filename="tomoni-export.json"'
     return response
+
+
+# ---------------------------------------------------------------------------
+# メニュー・料金表
+# ---------------------------------------------------------------------------
+@stylist_required
+def menu_list(request):
+    menus = list(request.stylist.menus.all())
+    groups = []
+    for target, label in MenuItem.Target.choices:
+        items = [m for m in menus if m.target == target]
+        if items:
+            groups.append((label, items))
+    from .models import DEFAULT_CATEGORY_MINUTES
+
+    categories = [(key, label, request.stylist.minutes_for_category(key), DEFAULT_CATEGORY_MINUTES.get(key)) for key, label in MenuItem.Category.choices]
+    return render(request, "accounts/menu_list.html", {"groups": groups, "count": len(menus), "bulk_form": MenuBulkForm(), "categories": categories})
+
+
+@require_POST
+@stylist_required
+def category_minutes_update(request):
+    """種類ごとの所要時間の目安を保存"""
+    from .models import DEFAULT_CATEGORY_MINUTES, MenuItem
+
+    data = {}
+    for key, _label in MenuItem.Category.choices:
+        raw = (request.POST.get(f"cat_{key}") or "").strip()
+        if raw:
+            try:
+                data[key] = max(int(raw), 5)
+            except ValueError:
+                messages.error(request, "所要時間は分の数字で入れてください")
+                return redirect("accounts:menu_list")
+    request.stylist.category_minutes = data
+    request.stylist.save(update_fields=["category_minutes", "updated_at"])
+    from apps.broadcasts.auto_slots import sync_auto_slots
+
+    sync_auto_slots(request.stylist)
+    messages.success(request, "種類ごとの所要時間を保存しました")
+    return redirect("accounts:menu_list")
+
+
+@stylist_required
+def menu_edit(request, pk=None):
+    item = get_object_or_404(MenuItem, pk=pk, stylist=request.stylist) if pk else None
+    form = MenuItemForm(request.POST or None, instance=item)
+    if request.method == "POST" and form.is_valid():
+        menu = form.save(commit=False)
+        menu.stylist = request.stylist
+        menu.save()
+        messages.success(request, "保存しました")
+        return redirect("accounts:menu_list")
+    return render(request, "accounts/menu_form.html", {"form": form, "item": item})
+
+
+@require_POST
+@stylist_required
+def menu_delete(request, pk):
+    item = get_object_or_404(MenuItem, pk=pk, stylist=request.stylist)
+    item.delete()
+    messages.success(request, f"「{item.name}」を削除しました")
+    return redirect("accounts:menu_list")
+
+
+@require_POST
+@stylist_required
+def menu_bulk(request):
+    form = MenuBulkForm(request.POST)
+    if form.is_valid():
+        created = add_menus_from_text(request.stylist, form.cleaned_data["text"])
+        no_price = sum(1 for m in created if m.price is None)
+        note = f"（うち{no_price}件は料金を読み取れませんでした。編集で入れてください）" if no_price else ""
+        messages.success(request, f"{len(created)}件追加しました{note}")
+    return redirect("accounts:menu_list")
+

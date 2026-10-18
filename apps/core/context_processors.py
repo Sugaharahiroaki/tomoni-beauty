@@ -13,6 +13,7 @@ def app_context(request):
     return {
         "APP_NAME": "TOMONI Beauty",
         "SITE_URL": settings.SITE_URL,
+        "STATIC_VERSION": settings.STATIC_VERSION,
         "stylist": stylist,
         "inbox_unread": inbox_unread,
     }

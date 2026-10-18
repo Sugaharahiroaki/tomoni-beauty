@@ -14,3 +14,8 @@ htmlcov/
 Thumbs.db
 .idea/
 .vscode/
+
+# 美容師から預かった実写真（お客様が写っているためリポジトリに入れない）
+demo_assets/photos/
+# 見本動画用のAI生成クリップ（架空のスタイリスト・容量が大きいのでリポジトリに入れない）
+demo_assets/stylist_clips/

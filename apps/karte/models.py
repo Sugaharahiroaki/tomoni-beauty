@@ -147,6 +147,7 @@ class KartePhoto(TimeStampedModel):
     image = models.ImageField("写真", upload_to=karte_photo_path)
     sns_ok = models.BooleanField("この写真はSNS掲載OK", default=True)
     face_visible = models.BooleanField("顔が写っている", default=False)
+    role = models.CharField("ビフォー／アフター", max_length=8, choices=[("after", "アフター"), ("before", "ビフォー")], default="after")
     caption = models.CharField("メモ", max_length=100, blank=True)
 
     class Meta:

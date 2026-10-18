@@ -232,6 +232,7 @@ def generate_body(broadcast: Broadcast, notes: str) -> dict:
         broadcast.stylist.has_hotpepper,
         slots_text(broadcast.slots.all()),
         " / ".join(segment_summary(broadcast.segment)),
+        broadcast.stylist.menu_prompt_text(),
     )
     broadcast.body = result.get("body", "").strip()
     broadcast.ai_alternatives = [a for a in result.get("free_alternatives", []) if isinstance(a, str)][:5]
@@ -393,7 +394,8 @@ def availability_summary(stylist, today: date | None = None) -> dict:
         "week_start": start,
         "week_end": end - timedelta(days=1),
         "open_hours": hours,
-        "potential_income": potential_monthly_income(hours, stylist.avg_price, stylist.commission_rate, stylist.avg_service_minutes),
+        # LINEや自分の予約リンクで埋まる枠は指名客のことが多いので、指名歩合（あれば）から諸経費を引いた割合で計算する
+        "potential_income": potential_monthly_income(hours, stylist.avg_price, stylist.take_rate(nominated=True), stylist.avg_service_minutes),
         "upcoming_slots": AvailabilitySlot.objects.filter(stylist=stylist, status=AvailabilitySlot.Status.OPEN, date__gte=today).order_by("date", "start_time")[:20],
         "waitlist_count": WaitlistEntry.objects.filter(stylist=stylist, status=WaitlistEntry.Status.ACTIVE).count(),
         "needs_settings": not (stylist.avg_price and stylist.commission_rate),

@@ -55,7 +55,7 @@ def manifest(request):
 
 
 def service_worker(request):
-    body = render_to_string("core/sw.js")
+    body = render_to_string("core/sw.js", {"version": settings.STATIC_VERSION})
     response = HttpResponse(body, content_type="application/javascript")
     response["Service-Worker-Allowed"] = "/"
     response["Cache-Control"] = "no-cache"

@@ -3,40 +3,74 @@
 {% block page_title %}SNS投稿{% endblock %}
 {% block topaction %}<a class="action" href="{% url 'reels:settings' %}">設定</a>{% endblock %}
 {% block content %}
+{% if needs_focus %}<div class="card warn tiny">「得意な悩み」をまだ入れていません。<a href="{% url 'reels:settings' %}">設定</a>に1〜3個入れると、投稿のテーマがぶれず「この悩みならこの人」と覚えてもらえます。</div>{% endif %}
 <div class="card accent">
-  <div class="row between"><strong>動画（リール）をつくる</strong><span class="badge">{{ month_count }} / {{ profile.posts_per_month }} 本（今月）</span></div>
-  <p class="tiny" style="margin:4px 0 8px">写真か短い動画を数枚撮るだけで、テロップ・ナレーション・BGM付きの縦動画（15〜30秒）と投稿文ができ、Instagramリール・YouTubeショート・Threads に予約投稿できます。</p>
-  <a class="btn" href="{% url 'reels:start' %}">🎬 新しい動画をつくる</a>
-  {% if not options.ffmpeg_available %}<p class="tiny mt" style="color:var(--danger)">このサーバーに FFmpeg が無いため、動画の作成はできません（撮影・台本までは試せます）。</p>{% endif %}
-  {% if not profile.instagram_connected and not profile.youtube_connected and not profile.threads_connected %}<p class="tiny muted mt">投稿先をまだつないでいないので「お試し投稿」になります。<a href="{% url 'reels:settings' %}">設定</a>からつなげます。</p>{% endif %}
+  <div class="row between"><strong>投稿をつくる</strong><span class="badge">今週 {{ week_count }} / {{ profile.posts_per_week }} 本</span></div>
+  <p class="tiny" style="margin:4px 0 8px">写真か動画を入れるだけ。型と文章はAIが提案します。動画を1本でも入れると、テロップ・ナレーション・BGM付きの縦動画になります。</p>
+  <form method="post" action="{% url 'reels:start' %}">{% csrf_token %}<button class="btn">＋ 投稿をつくる</button></form>
+  {% if not options.ffmpeg_available %}<p class="tiny mt" style="color:var(--danger)">このサーバーに FFmpeg が無いため、動画の作成はできません（文章の投稿は作れます）。</p>{% endif %}
 </div>
 
+{% if plan %}
 <section class="section">
-  <div class="section-title"><h2>最近の施術から</h2><a href="{% url 'drafts:sns_list' %}">文章の投稿</a></div>
+  <div class="section-title"><h2>今週のおすすめ（あと {{ plan|length }} 本）</h2></div>
+  {% for r in plan %}
+  <div class="card plan-card">
+    <div class="row" style="align-items:flex-start"><span class="type-icon">{{ r.definition.icon }}</span>
+      <div class="grow"><strong>{{ r.label }}</strong> <span class="muted tiny">{{ r.definition.tagline }}</span>
+        <div class="tiny" style="margin-top:2px">{{ r.reason }}</div>
+        <div class="tiny muted mt">用意するもの：{% for n in r.needs %}{{ n }}{% if not forloop.last %}／{% endif %}{% empty %}特になし（写真があるとより良い）{% endfor %}</div>
+      </div>
+    </div>
+    <form method="post" action="{% url 'reels:start' %}" class="mt">{% csrf_token %}<input type="hidden" name="post_type" value="{{ r.post_type }}"><input type="hidden" name="alternatives" value="{{ r.alternatives|join:',' }}"><input type="hidden" name="reason" value="{{ r.reason }}"><button class="btn sm secondary">この型でつくる</button></form>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% if overview.total %}
+<div class="card">
+  <div class="row between"><strong class="tiny">直近 {{ overview.total }} 件の型</strong>{% if overview.streak >= 2 %}<span class="badge warn">{{ overview.streak_label }}が {{ overview.streak }} 回連続</span>{% endif %}</div>
+  <div class="type-bar mt">{% for r in overview.rows %}{% if r.count %}<span class="tb-{{ r.key }}" style="width:{{ r.share }}%" title="{{ r.label }}"></span>{% endif %}{% endfor %}</div>
+  <div class="chips mt">{% for r in overview.rows %}{% if r.count %}<span class="chip">{{ r.icon }} {{ r.label }} {{ r.count }}</span>{% endif %}{% endfor %}</div>
+</div>
+{% endif %}
+
+<section class="section">
+  <div class="section-title"><h2>最近の施術から</h2></div>
   {% for k in recent_kartes %}
   <div class="list-item"><span class="grow">{{ k.customer.name }} <span class="muted tiny">{{ k.visited_on|jadate }}</span><div class="meta">{{ k.menu_display }}</div></span>
-    <a class="btn sm" href="{% url 'reels:start' %}?karte={{ k.pk }}">動画</a>
-    <a class="btn sm ghost" href="{% url 'drafts:sns_new' %}?karte={{ k.pk }}">文章</a></div>
+    <form method="post" action="{% url 'reels:start' %}">{% csrf_token %}<input type="hidden" name="karte" value="{{ k.pk }}"><button class="btn sm">この施術で</button></form></div>
   {% empty %}<div class="card flat muted">カルテがまだありません。施術メモを録音すると、ここから投稿を作れます。</div>{% endfor %}
 </section>
 
-<section class="section">
-  <div class="section-title"><h2>つくりかけの動画</h2></div>
+<section class="section" id="in-progress">
+  <div class="section-title"><h2>つくりかけ</h2>{% if in_progress %}<button type="button" class="linklike" id="select-toggle">選択</button>{% endif %}</div>
+  <form method="post" action="{% url 'reels:bulk_delete' %}" id="bulk-form" data-confirm="選んだ投稿を削除します。撮った写真・動画も消えます。よろしいですか？">{% csrf_token %}
   {% for p in in_progress %}
-  <a class="list-item" href="{% url 'reels:workspace' p.pk %}">
-    {% if p.thumbnail %}<img src="{{ p.thumbnail.url }}" alt="" style="width:44px;height:78px;object-fit:cover;border-radius:8px">{% else %}<span class="avatar">🎬</span>{% endif %}
-    <span class="grow"><strong>{{ p.theme_title|default:p.template_label }}</strong> <span class="badge {% if p.status == 'FAILED' %}danger{% elif p.status == 'READY' or p.status == 'REVIEW' %}accent{% elif p.is_busy %}warn{% endif %}">{{ p.get_status_display }}</span><div class="meta">{{ p.template_label }} ・ {{ p.created_at|jadate }}</div></span><span class="chev">›</span>
-  </a>
-  {% empty %}<div class="card flat muted">つくりかけの動画はありません</div>{% endfor %}
+  <div class="list-item">
+    <label class="select-box"><input type="checkbox" name="ids" value="{{ p.pk }}" aria-label="選択"></label>
+    <a class="row grow" href="{% url 'reels:workspace' p.pk %}" style="text-decoration:none;color:inherit">
+      {% if p.thumbnail %}<img src="{{ p.thumbnail.url }}" alt="" style="width:44px;height:78px;object-fit:cover;border-radius:8px">{% else %}<span class="avatar">{% if p.output_format == 'reel' %}🎬{% elif p.output_format == 'feed' %}🖼{% else %}💬{% endif %}</span>{% endif %}
+      <span class="grow"><strong>{{ p.theme_title|default:p.type_label }}</strong> <span class="badge {% if p.status == 'FAILED' %}danger{% elif p.status == 'READY' or p.status == 'REVIEW' %}accent{% elif p.is_busy %}warn{% endif %}">{{ p.get_status_display }}</span><div class="meta">{{ p.type_label }}{% if p.post_type %} ・ {{ p.format_label }}{% endif %} ・ {{ p.created_at|jadate }}</div></span><span class="chev">›</span>
+    </a>
+  </div>
+  {% empty %}<div class="card flat muted">つくりかけの投稿はありません</div>{% endfor %}
+  <div class="bulk-actions" hidden><button class="btn danger sm" id="bulk-delete-btn" disabled>選んだ <span id="bulk-count">0</span> 件を削除</button><button type="button" class="btn ghost sm" id="select-all">すべて選ぶ</button></div>
+  </form>
 </section>
+<script>
+(function(){const sec=document.getElementById('in-progress');const toggle=document.getElementById('select-toggle');if(!sec||!toggle)return;
+const actions=sec.querySelector('.bulk-actions');const btn=document.getElementById('bulk-delete-btn');const count=document.getElementById('bulk-count');const boxes=()=>Array.from(sec.querySelectorAll('input[name=ids]'));
+function update(){const n=boxes().filter(b=>b.checked).length;count.textContent=n;btn.disabled=n===0;}
+toggle.addEventListener('click',()=>{const on=sec.classList.toggle('selecting');actions.hidden=!on;toggle.textContent=on?'やめる':'選択';if(!on){boxes().forEach(b=>b.checked=false);update();}});
+sec.addEventListener('change',update);
+document.getElementById('select-all').addEventListener('click',()=>{const all=boxes();const every=all.every(b=>b.checked);all.forEach(b=>b.checked=!every);update();});
+})();
+</script>
 
 <section class="section">
-  <div class="section-title"><h2>投稿した動画</h2><a href="{% url 'reels:history' %}">記録と数字</a></div>
-  {% for p in published %}<a class="list-item" href="{% url 'reels:workspace' p.pk %}">{% if p.thumbnail %}<img src="{{ p.thumbnail.url }}" alt="" style="width:44px;height:78px;object-fit:cover;border-radius:8px">{% endif %}<span class="grow"><strong>{{ p.theme_title }}</strong><div class="meta">{{ p.published_at|jadatetime }}</div></span><span class="chev">›</span></a>{% empty %}<div class="card flat muted">まだ投稿していません</div>{% endfor %}
-</section>
-
-<section class="section">
-  <div class="section-title"><h2>文章の投稿（フィード・ストーリーズ・リール台本）</h2><a href="{% url 'drafts:sns_list' %}">すべて</a></div>
-  {% for p in text_posts %}<a class="list-item" href="{% url 'drafts:sns_detail' p.pk %}"><span class="grow"><span class="badge {{ p.status|badge_class }}">{{ p.get_status_display }}</span> {{ p.get_purpose_display }}<div class="meta">{{ p.feed_text|truncatechars:50|default:"（生成中）" }}</div></span><span class="chev">›</span></a>{% empty %}<div class="card flat muted">まだありません</div>{% endfor %}
+  <div class="section-title"><h2>投稿したもの</h2><a href="{% url 'reels:history' %}">記録と成果</a></div>
+  {% for p in published %}<a class="list-item" href="{% url 'reels:workspace' p.pk %}">{% if p.thumbnail %}<img src="{{ p.thumbnail.url }}" alt="" style="width:44px;height:78px;object-fit:cover;border-radius:8px">{% endif %}<span class="grow"><strong>{{ p.theme_title|default:p.type_label }}</strong><div class="meta">{{ p.type_label }} ・ {{ p.published_at|jadatetime }}</div></span><span class="chev">›</span></a>{% empty %}<div class="card flat muted">まだ投稿していません</div>{% endfor %}
 </section>
 {% endblock %}

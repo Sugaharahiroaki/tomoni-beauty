@@ -43,3 +43,4 @@
 - yt_title：40文字以内。最後に #shorts を付けない（プログラムが付ける）
 - yt_description：2〜3文
 - bgm_category：型に合う系統から選ぶ（ストーリー・こだわりは emotional / calm / acoustic、それ以外は bright / lofi / daily）
+- caption_pos：各シーンのテロップを置く位置。写真を見て、顔・目・口、髪の毛先、手元など主役と重ならない帯を選ぶ（top＝上 / middle＝中央 / bottom＝下）。後ろ姿で画面全体が髪なら、いちばん模様の少ない帯。迷ったら auto（自動判定）

@@ -1,0 +1,67 @@
+{% load tomoni %}
+<div class="card info tiny"><strong>台本を確かめて、直したいところを書きかえてください。</strong> 写真を押すと入れ替えられます。問題がなければ「この内容で動画をつくる」。</div>
+{% for n in post.notes %}<div class="card warn tiny">{{ n }}</div>{% endfor %}
+{% if post.pii_errors %}<div class="card danger tiny"><strong>お客様の個人情報の可能性があります。</strong>{% for f in post.pii_errors %}<div>「{{ f.text }}」（{{ f.field }}）</div>{% endfor %}直してから動画を作ってください。</div>{% endif %}
+{% if post.hype_errors %}<div class="card danger tiny"><strong>誇大表現があります。</strong>{% for f in post.hype_errors %}<div>「{{ f.text }}」（{{ f.field }}）</div>{% endfor %}言い換えてから動画を作ってください。</div>{% endif %}
+<form method="post" action="{% url 'reels:script_edit' post.pk %}" id="script-form">{% csrf_token %}
+  {% for scene in post.script.scenes %}
+  <div class="card scene-card">
+    <div class="row"><span class="avatar">{{ forloop.counter }}</span><span class="badge {% if forloop.first %}warn{% endif %}">{% if forloop.first %}つかみ（最初の1〜2秒）{% else %}{{ scene.role }}{% endif %}</span></div>
+    <div class="row mt" style="align-items:flex-start">
+      <div class="shot-column">
+        {% for shot in scene.shots %}{% with a=asset_map|get_item:shot.asset_id %}
+        <button type="button" class="asset-thumb picker-trigger" data-scene="{{ forloop.parentloop.counter0 }}" data-shot="{{ forloop.counter0 }}">{% if a %}<img src="{{ a.poster_url }}" alt="">{% else %}<span class="tiny">?</span>{% endif %}</button>
+        <input type="hidden" name="asset_{{ forloop.parentloop.counter0 }}_{{ forloop.counter0 }}" value="{{ shot.asset_id }}">
+        {% endwith %}{% endfor %}
+      </div>
+      <div class="grow">
+        <label class="tiny">画面の文字（テロップ）</label><textarea name="caption_{{ forloop.counter0 }}" rows="2" maxlength="80">{{ scene.caption }}</textarea>
+        <label class="tiny mt">セリフ（読み上げ）<span class="muted">・空なら BGM だけ</span></label><textarea name="narration_{{ forloop.counter0 }}" rows="2" maxlength="80">{{ scene.narration }}</textarea>
+        <label class="tiny mt">テロップの位置</label><select name="caption_pos_{{ forloop.counter0 }}">{% for k, label in caption_positions %}<option value="{{ k }}" {% if scene.caption_pos|default:"auto" == k %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+      </div>
+    </div>
+    <div class="picker-row" data-picker-for="{{ forloop.counter0 }}" style="display:none">
+      <p class="tiny muted">入れ替える写真・動画を選んでください</p>
+      <div class="asset-row">{% for a in assets %}{% if a.id|stringformat:'s' in usable_ids %}<button type="button" class="asset-thumb picker-option" data-asset="{{ a.id }}" data-src="{{ a.poster_url }}"><img src="{{ a.poster_url }}" alt=""></button>{% endif %}{% endfor %}</div>
+    </div>
+    {% if post.narration_mode == "own" and scene.narration %}
+    <div class="take-row tiny" data-take-index="{{ forloop.counter0 }}" data-take-url="{% url 'reels:take_upload' post.pk %}">
+      <button type="button" class="btn sm ghost take-record">🎙 自分の声で録音</button>
+      {% with t=takes|get_item:forloop.counter0 %}{% if t %}<audio controls src="{{ t }}" class="take-audio"></audio>{% else %}<audio controls class="take-audio" style="display:none"></audio>{% endif %}{% endwith %}
+      <span class="take-status muted"></span>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+  <div class="card">
+    <strong class="tiny">最後の場面（見てくれた人へのお願い）</strong>
+    <input type="text" name="cta_text" maxlength="30" value="{{ post.script.cta.text }}" class="mt">
+    {% if post.script.cta.narration %}<p class="muted tiny">セリフ：{{ post.script.cta.narration }}</p>{% endif %}
+  </div>
+  <div class="card">
+    <strong class="tiny">声と音楽</strong>
+    <ul class="radio-list">
+      <li><input type="radio" name="narration_mode" value="ai" id="nm_ai" {% if post.narration_mode == "ai" %}checked{% endif %}><label for="nm_ai">AIの声で読む{% if not options.tts_available %} <span class="muted tiny">（GEMINI_API_KEY 未設定のため声なしになります）</span>{% endif %}</label></li>
+      <li><input type="radio" name="narration_mode" value="own" id="nm_own" {% if post.narration_mode == "own" %}checked{% endif %}><label for="nm_own">自分の声で録音する <span class="muted tiny">（保存すると各セリフの下に録音ボタンが出ます）</span></label></li>
+      <li><input type="radio" name="narration_mode" value="none" id="nm_none" {% if post.narration_mode == "none" %}checked{% endif %}><label for="nm_none">声なし（テロップとBGMだけ）</label></li>
+    </ul>
+    <p class="muted tiny">AIの声のときは投稿文に「{{ ai_notice }}」が付きます。</p>
+    <label class="tiny mt">BGM</label>
+    <select name="bgm"><option value="">おまかせ（型に合う曲）</option>{% for t in bgm_tracks %}<option value="{{ t.id }}" {% if post.bgm_id == t.id %}selected{% endif %}>{{ t.category_label }}の曲{% if t.mood %}（{{ t.mood }}）{% endif %}</option>{% endfor %}</select>
+    {% if post.bgm %}<audio controls src="{{ post.bgm.file.url }}" class="mt" style="width:100%"></audio>{% endif %}
+  </div>
+  <div class="card">
+    <strong class="tiny">投稿文（動画といっしょに出る文章）</strong>
+    <label class="tiny mt">Instagram の文章</label><textarea name="ig_caption" rows="5">{{ post.ig_caption }}</textarea>
+    <label class="tiny mt">ハッシュタグ（スペース区切り）</label><input type="text" name="hashtags" value="{% for h in post.hashtags %}#{{ h }} {% endfor %}">
+    <label class="tiny mt">YouTube の題名</label><input type="text" name="yt_title" maxlength="95" value="{{ post.yt_title }}">
+    <label class="tiny mt">YouTube の説明</label><textarea name="yt_description" rows="3">{{ post.yt_description }}</textarea>
+  </div>
+  {% if post.episode_ids %}<p class="muted tiny">使ったエピソード: {% for eid in post.episode_ids %}{% with e=episodes|get_item:eid %}{% if e %}「{{ e.title }}」{% endif %}{% endwith %}{% endfor %}</p>{% endif %}
+  <div class="sticky-actions">
+    <button class="btn" name="action" value="render" {% if not options.ffmpeg_available %}disabled{% endif %}>🎬 この内容で動画をつくる</button>
+    <div class="btn-row mt"><button class="btn secondary" name="action" value="save">保存だけして、あとで続ける</button>{% if editing %}<a class="btn ghost" href="{% url 'reels:workspace' post.pk %}">直さずに戻る</a>{% endif %}</div>
+    <p class="center muted tiny mt">動画は2〜3分でできあがります{% if not options.ffmpeg_available %}（このサーバーには FFmpeg がありません）{% endif %}</p>
+  </div>
+</form>
+<form method="post" action="{% url 'reels:script_generate' post.pk %}" class="mt">{% csrf_token %}<button class="btn ghost">台本をAIで作り直す</button></form>

@@ -68,3 +68,15 @@ def test_pwa_endpoints():
     assert sw.status_code == 200
     assert sw["Content-Type"].startswith("application/javascript")
     assert c.get(reverse("core:health")).json() == {"status": "ok"}
+
+
+def test_static_version_in_pages_and_service_worker(client_logged, settings):
+    """CSS/JS の更新がサービスワーカーのキャッシュで止まらない（URL とキャッシュ名にバージョン）"""
+    settings.STATIC_VERSION = "12345"
+    from django.urls import reverse
+
+    page = client_logged.get(reverse("core:today")).content.decode()
+    assert "css/app.css?v=12345" in page and "js/app.js?v=12345" in page
+    sw = client_logged.get(reverse("core:service_worker")).content.decode()
+    assert 'const CACHE = "tomoni-12345";' in sw and "stale-while-revalidate" in sw
+

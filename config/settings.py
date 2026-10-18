@@ -156,6 +156,15 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+
+def _static_version() -> str:
+    """CSS/JS の更新時刻からバージョン文字列を作る（URL の ?v= とサービスワーカーのキャッシュ名に使う）。本番は STATIC_VERSION で固定も可"""
+    paths = [BASE_DIR / "static" / "css" / "app.css", *sorted((BASE_DIR / "static" / "js").glob("*.js"))]
+    return str(int(max((p.stat().st_mtime for p in paths if p.exists()), default=0)))
+
+
+STATIC_VERSION = env("STATIC_VERSION", "") or _static_version()
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {
@@ -281,6 +290,9 @@ RICH_MENU_FONT_PATH = env("RICH_MENU_FONT_PATH", "")
 # SNS動画投稿（リール）: 台本=Claude、ナレーション=Gemini TTS、投稿=Instagram/YouTube/Threads
 # ---------------------------------------------------------------------------
 GEMINI_API_KEY = env("GEMINI_API_KEY", "")
+PEXELS_API_KEY = env("PEXELS_API_KEY", "")  # ネットの素材（B-roll）。無ければその機能だけ出ない
+# SNS投稿の「AIおまかせ」（型の採点）の重み。環境変数 SNS_W_PURPOSE などで上書きできる
+SNS_RECOMMEND_WEIGHTS = {k: float(env(f"SNS_W_{k.upper()}", v)) for k, v in {"purpose": 3.0, "bias": 4.0, "streak": 3.0, "availability": 2.0, "results": 2.0, "favorite": 1.0, "accept": 1.0, "skip": 1.5}.items()}
 INSTAGRAM_APP_ID = env("INSTAGRAM_APP_ID", "")
 INSTAGRAM_APP_SECRET = env("INSTAGRAM_APP_SECRET", "")
 INSTAGRAM_GRAPH_VERSION = env("INSTAGRAM_GRAPH_VERSION", "v25.0")

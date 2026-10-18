@@ -11,7 +11,7 @@
   <link rel="manifest" href="{% url 'core:manifest' %}">
   <link rel="apple-touch-icon" href="{% static 'icons/apple-touch-icon.png' %}">
   <link rel="icon" type="image/png" href="{% static 'icons/icon-192.png' %}">
-  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v={{ STATIC_VERSION }}">
   {% block head %}{% endblock %}
 </head>
 <body>
@@ -59,7 +59,7 @@
 {% endblock %}
 {% endif %}
 
-<script src="{% static 'js/app.js' %}"></script>
+<script src="{% static 'js/app.js' %}?v={{ STATIC_VERSION }}"></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

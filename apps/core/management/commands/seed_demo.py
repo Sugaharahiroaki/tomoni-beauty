@@ -5,14 +5,16 @@
 外部APIは呼ばない（AI_FAKE / TRANSCRIPTION_FAKE のダミーで文面を生成）。
 """
 import io
-from datetime import date, time, timedelta
+from datetime import date, datetime, time, timedelta
+from pathlib import Path
 
+from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
 
-from apps.accounts.models import Stylist, User
+from apps.accounts.models import MenuItem, Stylist, User
 from apps.broadcasts.models import AvailabilitySlot, Broadcast, WaitlistEntry
 from apps.core.dates import today_local
 from apps.customers.models import Customer, Tag
@@ -44,8 +46,23 @@ def _png(color=(200, 160, 140), size=(600, 800)) -> bytes:
     return buf.getvalue()
 
 
+DEMO_PHOTO_DIR = Path(settings.BASE_DIR) / "demo_assets" / "photos"
+DEMO_CLIP_DIR = Path(settings.BASE_DIR) / "demo_assets" / "stylist_clips"
+
+
+def _photo(name: str, fallback_color=(200, 160, 140)) -> SimpleUploadedFile:
+    """美容師から提供された実写真（demo_assets/photos/*.jpg）があればそれを、無ければ単色の仮画像を返す"""
+    path = DEMO_PHOTO_DIR / f"{name}.jpg"
+    if path.exists():
+        return SimpleUploadedFile(path.name, path.read_bytes(), content_type="image/jpeg")
+    return SimpleUploadedFile(f"{name}.png", _png(fallback_color), content_type="image/png")
+
+
 class Command(BaseCommand):
     help = "ローカル確認用のデモ美容師アカウントとサンプルデータを作成する"
+
+    def add_arguments(self, parser):
+        parser.add_argument("--render", action="store_true", help="見本の動画（SNS動画）をレンダリングまで行う（FFmpeg 必須。GEMINI_API_KEY があればAIの声も入る）")
 
     @transaction.atomic
     def handle(self, *args, **options):
@@ -54,22 +71,55 @@ class Command(BaseCommand):
         stylist = Stylist.objects.create(
             user=user,
             display_name="佐藤 美咲",
-            salon_name="salon TOMONI 表参道",
-            hotpepper_url="https://beauty.hotpepper.jp/CSP/bt/reserve/?storeId=H000000001&stylistId=T000000001",
-            commission_rate=50,
-            avg_price=8800,
+            salon_name="SOYON なんば店",
+            hotpepper_url="https://beauty.hotpepper.jp/slnH000728967/",
+            commission_rate=55,  # フリー客
+            nominated_commission_rate=65,  # 指名客
+            expense_rate=15,  # 歩合から諸経費15%
+            salon_access="なんば駅から徒歩1分",
+            avg_price=9500,
             weekly_slot_hours=35,
             avg_service_minutes=90,
             onboarding_completed=True,
             interview_completed=True,
         )
         stylist.ensure_email_import_key()
+        # メニュー・料金表（SOYON なんば店のホットペッパー掲載より。2026年10月時点）
+        menus = [
+            ("new", "cut", "【似合わせで垢抜け】ドライカット", 2800, False, "2cm以内のメンテカット。シャンプーなし"),
+            ("new", "set", "カット+透明感カラー", 6500, False, ""),
+            ("new", "set", "カット+透明感カラー+バイカルテTR", 7500, False, ""),
+            ("new", "bleach", "ブリーチ+フルカラー+バイカルテTR", 12900, False, "女性限定"),
+            ("new", "bleach", "カット+ブリーチカラー+バイカルテTR（韓国カラー）", 13900, False, "女性限定"),
+            ("new", "bleach", "インナーカラー+バイカルテTR", 10900, False, "範囲・色味で変動あり"),
+            ("new", "treatment", "【水素髪質改善】アプトグロストリートメント", 6900, False, "カット追加+2,000円"),
+            ("repeat", "cut", "ドライカット", 3500, False, "毛先2〜3cm・毛量調整のみ"),
+            ("repeat", "color", "ナチュラルカラー", 4200, False, "アディクシーに変更+2,000円"),
+            ("repeat", "set", "似合わせカット+ナチュラルカラー", 5900, False, ""),
+            ("repeat", "set", "似合わせカット+高発色透明感カラー", 7900, False, "塗り分け+2,000円"),
+            ("repeat", "bleach", "リタッチブリーチ+カラー+バイカルテTR", 13500, False, "前回から45日以内・女性限定"),
+            ("all", "cut", "シャンプーカット", 4500, False, ""),
+            ("all", "color", "カラー", 5000, True, ""),
+            ("all", "bleach", "ブリーチカラー", 7000, True, "肩下+1,000円"),
+            ("all", "bleach", "ハイライト", 8000, True, ""),
+            ("all", "bleach", "バレイヤージュ", 18000, True, ""),
+            ("all", "straight", "似合わせカット+縮毛矯正", 11400, False, ""),
+            ("all", "treatment", "TOKIOトリートメント", 4000, False, "単品は+1,000円"),
+            ("all", "other", "深夜料金", 1000, True, "21時以降は1時間ごとに加算"),
+        ]
+        for i, (target, category, name, price, price_from, note) in enumerate(menus):
+            MenuItem.objects.create(stylist=stylist, target=target, category=category, name=name, price=price, price_from=price_from, note=note, order=i)
+        # 所要時間と持ちの目安（SNSのキャプションに使う）
+        MenuItem.objects.filter(stylist=stylist, name__contains="透明感カラー").update(minutes=120, duration_weeks=6)
+        MenuItem.objects.filter(stylist=stylist, name__contains="ブリーチ").update(minutes=180, duration_weeks=5)
+        MenuItem.objects.filter(stylist=stylist, name__contains="縮毛矯正").update(minutes=180, duration_weeks=16)
+        MenuItem.objects.filter(stylist=stylist, name__contains="カット", price__lt=5000).update(minutes=45)
         StylistProfile.objects.create(
             stylist=stylist,
             first_person="私",
             tone="やわらかい丁寧語。「〜かなと思います」が多め。押しつけない",
             emoji_level=1,
-            area_tags="#表参道美容室, #渋谷ヘアサロン",
+            area_tags="#なんば美容室, #難波ヘアサロン, #大阪美容室",
             style_summary="落ち着いた口調で、専門用語は噛み砕いて説明する。語尾は「〜です」「〜してみてください」。",
         )
         for q in InterviewQuestion.objects.filter(order__lte=4):
@@ -85,7 +135,7 @@ class Command(BaseCommand):
             channel_access_token="demo-token-not-real",
             bot_user_id="Udemo0000000000000000000000000bot",
             basic_id="@tomoni-demo",
-            display_name="salon TOMONI 佐藤",
+            display_name="SOYON なんば 佐藤",
             is_verified=True,
             last_verified_at=timezone.now(),
         )
@@ -126,12 +176,17 @@ class Command(BaseCommand):
             m.refresh_from_db()
             return m.karte
 
-        karte_today = memo(hanako, today, "今日は落ち着いたブラウンにカラー。色落ちが早くて毎回すぐ明るくなるのが気になるとのこと。赤みが出にくいようにマット寄りに調整。次回は6週間後を目安にリタッチの相談。写真はSNS掲載OK、顔出しはNG。")
-        KartePhoto.objects.create(karte=karte_today, image=SimpleUploadedFile("after.png", _png(), content_type="image/png"), sns_ok=True, face_visible=False, caption="仕上がり")
-        KartePhoto.objects.create(karte=karte_today, image=SimpleUploadedFile("face.png", _png((180, 140, 130)), content_type="image/png"), sns_ok=True, face_visible=True, caption="正面")
+        karte_today = memo(hanako, today, "今日はカット＋ハイライト。伸びてきたときに根元の境目が目立つのと、色落ちで黄ばむのが気になるとのこと。細めのハイライトで根元をぼかして、アッシュベージュで黄ばみを抑えた。次回は6週間後を目安にリタッチの相談。写真はSNS掲載OK、顔出しはNG。")
+        KartePhoto.objects.create(karte=karte_today, image=_photo("highlight_long_back"), sns_ok=True, face_visible=False, role="after", caption="仕上がり（後ろ）")
+        KartePhoto.objects.create(karte=karte_today, image=_photo("highlight_bob_back", (150, 120, 110)), sns_ok=True, face_visible=False, role="before", caption="施術前（見本として別の写真）")
+        KartePhoto.objects.create(karte=karte_today, image=_photo("highlight_side_hand", (180, 140, 130)), sns_ok=True, face_visible=True, caption="横から（顔あり）")
 
         karte_due = memo(sakura, today - timedelta(days=40), "カット＋ハイライト。伸びると重く見えるのが悩み。レイヤーを入れて軽さを出した。次回は6週間後。写真も顔出しもOK。")
-        memo(ichiro, today - timedelta(days=10), "メンズカット。襟足が浮きやすい。刈り上げを少し高めに。次回は4週間後。")
+        KartePhoto.objects.create(karte=karte_due, image=_photo("highlight_medium_back"), sns_ok=True, face_visible=False, caption="仕上がり")
+        karte_men = memo(ichiro, today - timedelta(days=10), "メンズカット＋前髪のインナーカラー。襟足が浮きやすい。刈り上げを少し高めに。次回は4週間後。")
+        KartePhoto.objects.create(karte=karte_men, image=_photo("mens_orange_bangs"), sns_ok=True, face_visible=True, caption="正面（写真掲載NGのお客様）")
+        karte_pink = memo(yui, today - timedelta(days=20), "ブリーチ＋くすみピンク。退色で黄色っぽくなるのが嫌とのこと。ピンクベージュ寄りに調整。次回は5週間後。写真はOK、顔出しはNG。")
+        KartePhoto.objects.create(karte=karte_pink, image=_photo("pink_bob_side"), sns_ok=True, face_visible=False, caption="仕上がり（横）")
 
         # 今日のカルテのお礼は送信済みにして実績を作る
         thanks = Draft.objects.filter(karte=karte_today, kind=Draft.Kind.THANKS_CARE).first()
@@ -142,7 +197,7 @@ class Command(BaseCommand):
         if nxt:
             msg = mark_draft_sent(nxt, Message.Route.COPY)
             Message.objects.filter(pk=msg.pk).update(sent_at=timezone.now() - timedelta(days=3))
-            r = Reservation.objects.create(stylist=stylist, customer=sakura, reserved_for=timezone.now() + timedelta(days=5, hours=3), menu="カット＋ハイライト")
+            r = Reservation.objects.create(stylist=stylist, customer=sakura, reserved_for=timezone.make_aware(datetime.combine(today + timedelta(days=5), time(14, 0))), menu="カット＋ハイライト")
             attribute_reservation(r)
 
         # SNS投稿
@@ -158,8 +213,15 @@ class Command(BaseCommand):
         InboundMessage.objects.create(stylist=stylist, customer=shell, text="はじめまして！予約したいです", reply_token="", received_at=timezone.now() - timedelta(days=1), line_message_id="demo-3", suggestion_status=InboundMessage.SuggestionStatus.NONE)
 
         # --- 予約・来店 ---
-        Reservation.objects.create(stylist=stylist, customer=yui, reserved_for=timezone.now().replace(hour=15, minute=0, second=0, microsecond=0), menu="トリートメント")
-        Reservation.objects.create(stylist=stylist, customer=None, customer_name_raw="ワタナベ ミキ", reserved_for=timezone.now() + timedelta(days=2), menu="カラー", source=Reservation.Source.EMAIL, note="予約通知メールから取り込み（要確認）")
+        def at(days, hour, minute=0):
+            return timezone.make_aware(datetime.combine(today + timedelta(days=days), time(hour, minute)))
+
+        Reservation.objects.create(stylist=stylist, customer=hanako, reserved_for=at(0, 11), menu="カット+透明感カラー")
+        Reservation.objects.create(stylist=stylist, customer=yui, reserved_for=at(0, 15), menu="トリートメント")
+        Reservation.objects.create(stylist=stylist, customer=None, customer_name_raw="ワタナベ ミキ", reserved_for=at(1, 13), menu="カラー", source=Reservation.Source.EMAIL, note="予約通知メールから取り込み（要確認）")
+        Reservation.objects.create(stylist=stylist, customer=ichiro, reserved_for=at(2, 10), menu="ドライカット")
+        Reservation.objects.create(stylist=stylist, customer=sakura, reserved_for=at(2, 11, 30), menu="ブリーチ+フルカラー+バイカルテTR")
+        AvailabilitySlot.objects.create(stylist=stylist, date=today, start_time=time(17, 0), end_time=time(19, 0), note="夕方")
         past = Reservation.objects.create(stylist=stylist, customer=ichiro, reserved_for=timezone.now() - timedelta(days=10), menu="カット", status=Reservation.Status.VISITED)
         Visit.objects.create(stylist=stylist, customer=ichiro, visited_at=past.reserved_for, menu="カット", price=5500, duration_minutes=60, reservation=past)
 
@@ -186,10 +248,12 @@ class Command(BaseCommand):
                 m += 12
                 y -= 1
             gross = 400000 + i * 15000
+            commission = gross * 55 // 100  # フリー客55%（指名客は65%）
+            expenses = commission * 15 // 100  # 歩合から諸経費15%を控除
             st = IncomeStatement.objects.create(
-                stylist=stylist, year=y, month=m, salon_name="salon TOMONI 表参道", gross_sales=gross, commission_rate_pct=50, commission_amount=gross // 2,
-                deductions=[{"label": "材料費", "amount": gross // 20}, {"label": "振込手数料", "amount": 440}],
-                withholding_tax=0, net_paid=gross // 2 - gross // 20 - 440, paid_on=date(y, m, 25) + timedelta(days=15),
+                stylist=stylist, year=y, month=m, salon_name="SOYON なんば店", gross_sales=gross, commission_rate_pct=55, commission_amount=commission,
+                deductions=[{"label": "諸経費（歩合の15%）", "amount": expenses}, {"label": "振込手数料", "amount": 440}],
+                withholding_tax=0, net_paid=commission - expenses - 440, paid_on=date(y, m, 25) + timedelta(days=15),
             )
             confirm_statement(st)
         samples = [
@@ -211,10 +275,26 @@ class Command(BaseCommand):
         from apps.reels import services as reel_services
         from apps.reels.ai import generate_script as generate_reel_script
 
-        reel = reel_services.start_post(stylist, template_key="before_after", karte=karte_today, uses_story=True, import_photos=True)
-        for name, slot in (("bowl.png", "bowl"), ("hands.png", "hands"), ("back.png", "after_back")):
-            reel_services.save_asset(reel, SimpleUploadedFile(name, _png((190 + len(slot) * 7, 150, 135)), content_type="image/png"), name, "image/png", 2000, "photo", slot)
+        reel_profile = reel_services.profile_of(stylist)
+        reel_profile.focus_concerns = ["ブリーチ後の色落ち・黄ばみ", "伸びた根元の境目", "くせ・広がり"]
+        reel_profile.purpose = "nomination"
+        reel_profile.posts_per_week = 2
+        reel_profile.save()
+
+        reel = reel_services.start_post(stylist, post_type="before_after", karte=karte_today, uses_story=True, import_photos=True)
+        for name, slot in (("highlight_bob_back", "before"), ("bowl", "bowl"), ("hands", "hands"), ("highlight_medium_back", "after_back")):
+            f = _photo(name, (190 + len(slot) * 7, 150, 135))
+            reel_services.save_asset(reel, f, f.name, f.content_type, f.size, "photo", slot)
+        reel.selected_hook = {"type": "call", "label": "呼びかけ", "text": "伸びた根元の境目が気になる人へ", "visual": "仕上がりの後ろ姿", "hype": []}
+        reel.save(update_fields=["selected_hook", "updated_at"])
         generate_reel_script(reel)
-        reel_services.start_post(stylist, template_key="daily")  # 撮影中のもの
+        reel_services.start_post(stylist)  # 素材を入れる前のもの
+
+        # 見本の動画（作品集・自己紹介・スタイリストの思い・1日）。素材が demo_assets にあるときだけ作る
+        from apps.reels.samples import create_sample_posts
+
+        samples = create_sample_posts(stylist, DEMO_PHOTO_DIR, DEMO_CLIP_DIR, render=options.get("render", False))
+        if samples:
+            self.stdout.write(f"見本の動画: {len(samples)}本" + ("（レンダリング済み）" if options.get("render") else "（台本まで。--render で動画も作成）"))
 
         self.stdout.write(self.style.SUCCESS(f"デモアカウントを作成しました: {DEMO_EMAIL} / {DEMO_PASSWORD}"))

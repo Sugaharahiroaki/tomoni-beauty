@@ -1,0 +1,59 @@
+{% load tomoni %}
+{% for n in post.notes %}<div class="card warn tiny">{{ n }}</div>{% endfor %}
+{% if want %}
+<div class="card accent tiny"><strong>今週のおすすめ：{{ want_label }}</strong>
+  {% if want_missing %}<div class="mt">用意するもの：{% for m in want_missing %}<div>・{{ m }}</div>{% endfor %}</div>{% else %}<div class="mt">必要な素材はそろっています。</div>{% endif %}
+</div>
+{% endif %}
+<div class="card info tiny"><strong>写真や動画を入れてください。</strong> 動画を1本でも入れると、テロップ・声・BGM付きの動画になります。写真だけならフィードやストーリーズの文章になります。まだ撮っていなくても次へ進めます。</div>
+<div id="upload-status" class="card accent tiny" style="display:none"></div>
+
+<div class="card">
+  <div class="btn-row">
+    <label class="btn" style="width:auto">📷 アルバムから選ぶ<input type="file" accept="image/*,video/*" multiple hidden data-upload-slot="" data-upload-role=""></label>
+    <button type="button" class="btn secondary" style="width:auto" data-camera-open data-slot="" data-role="" data-mode="photo" data-frame="back" data-what="仕上がりの後ろ姿・毛先" data-how="お客様の顔は入れずに。動画は3秒で自動で止まります">その場で撮る</button>
+  </div>
+  <p class="muted tiny mt" style="margin-bottom:0">まとめて何枚でも選べます。カット・シャンプー・塗布の動画は「施術中」として使われます。{% if post.karte %}カルテの写真（掲載OKのもの）は取り込み済みです。{% endif %}</p>
+</div>
+
+{% if library %}
+<div class="card">
+  <strong class="tiny">前に撮ったものから足す</strong>
+  <p class="muted tiny" style="margin:2px 0 6px">本人・施術中・店内などの素材は使い回せます（お客様の写真は、その投稿の中だけ）。押すと足します。</p>
+  <div class="asset-row">{% for a in library %}<form method="post" action="{% url 'reels:library_add' post.pk %}">{% csrf_token %}<input type="hidden" name="asset_id" value="{{ a.id }}"><button class="asset-thumb" title="{{ a.role_label }}"><img src="{{ a.poster_url }}" alt="">{% if a.kind == "video" %}<span class="tag badge">▶</span>{% endif %}{% if a.is_stock %}<span class="tag badge" style="top:auto;bottom:4px">ストック</span>{% endif %}</button><div class="tiny center">{{ a.role_label }}</div></form>{% endfor %}</div>
+</div>
+{% endif %}
+{% if options.stock_available %}
+<div class="card" id="stock-box" data-stock-url="{% url 'reels:stock_search' post.pk %}" data-stock-add-url="{% url 'reels:stock_add' post.pk %}">
+  <strong class="tiny">ネットの素材（Pexels）から足す</strong>
+  <p class="muted tiny" style="margin:2px 0 6px">道具・水・光・街並みなど、雰囲気の補助に。自分の施術やサロン、お客様として見せる使い方はしないでください（役割は「その他」か「施術中」だけ）。</p>
+  <div class="row"><input type="search" id="stock-q" placeholder="例: hair salon scissors" class="grow"><select id="stock-kind" style="width:auto"><option value="video">動画</option><option value="photo">写真</option></select><button type="button" class="btn sm secondary" id="stock-go" style="width:auto">探す</button></div>
+  <div class="asset-row mt" id="stock-results"></div>
+</div>
+{% endif %}
+
+{% if assets %}
+<div class="asset-grid">
+  {% for a in assets %}
+  <div class="asset-card {% if a.id|stringformat:'s' not in usable_ids %}blocked{% endif %}" data-asset-id="{{ a.id }}">
+    <div class="asset-thumb"><img src="{{ a.poster_url }}" alt="">{% if a.kind == "video" %}<span class="tag badge">▶ {{ a.duration_sec|floatformat:0 }}s</span>{% endif %}{% if a.is_stock %}<span class="tag badge" style="top:auto;bottom:4px">ストック</span>{% endif %}</div>
+    <select class="role-select" data-role-url="{% url 'reels:asset_role' post.pk a.pk %}" aria-label="役割">{% for k, label in roles %}<option value="{{ k }}" {% if a.role == k %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    <div class="asset-actions">
+      <form method="post" action="{% url 'reels:asset_face' post.pk a.pk %}">{% csrf_token %}<button class="linklike tiny" title="顔が写っているかの切り替え">{% if a.face_visible %}顔あり{% else %}顔なし{% endif %}</button></form>
+      <form method="post" action="{% url 'reels:asset_delete' post.pk a.pk %}">{% csrf_token %}<button class="linklike tiny" style="color:var(--danger)">削除</button></form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+<p class="muted tiny">役割（ビフォー／アフター／施術中／本人）は自動で推定しました。違っていたら変えてください。</p>
+{% if blocked_count %}<div class="card warn tiny">顔が写っている素材が {{ blocked_count }} 件あり、顔出しNGのため使われません（グレー表示）。顔が写っていなければ「顔あり」を押して切り替えてください。</div>{% endif %}
+{% endif %}
+
+<div class="card flat tiny">
+  今の素材：写真 {{ counts.photo }}・動画 {{ counts.video }}（ビフォー {{ counts.before }}／アフター {{ counts.after }}／施術中 {{ counts.process }}／本人 {{ counts.self }}）
+  {% if counts.video %}<div class="mt">→ <strong>動画（リール）</strong>として出来上がります</div>{% elif counts.photo %}<div class="mt">→ 写真だけなので、型によってフィード・ストーリーズ・動画になります</div>{% else %}<div class="mt">→ 素材なしでも「お役立ち」「人柄・考え方」は文章だけで作れます</div>{% endif %}
+</div>
+
+<div class="sticky-actions">
+  <a class="btn" href="?step=type{% if want %}&want={{ want }}{% endif %}">次へ：型を決める ›</a>
+</div>

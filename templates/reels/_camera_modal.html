@@ -1,0 +1,9 @@
+<div id="camera-modal" class="camera-modal" style="display:none" data-upload-url="{% url 'reels:asset_upload' post.pk %}">
+  <div class="camera-top"><button type="button" class="camera-close" aria-label="閉じる">✕</button><div class="grow"><strong id="camera-what"></strong><div class="tiny" id="camera-how"></div></div></div>
+  <div class="camera-stage"><div class="camera-view"><video id="camera-video" playsinline muted autoplay></video><div id="camera-guide" class="guide-overlay"></div><div id="camera-rec" class="camera-rec" style="display:none">録画中・あと<span>3</span>秒</div><div id="camera-error" class="camera-error" style="display:none"></div></div></div>
+  <div class="camera-bottom">
+    <div class="camera-mode"><button type="button" data-mode="photo" class="active">写真</button><button type="button" data-mode="video">動画</button></div>
+    <button type="button" id="camera-shutter" class="camera-shutter" aria-label="撮る"><span></span></button>
+    <div class="camera-right"><span id="camera-count" class="tiny"></span><button type="button" class="btn sm secondary camera-close">終わる</button></div>
+  </div>
+</div>

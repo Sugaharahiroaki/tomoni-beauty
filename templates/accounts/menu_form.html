@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}{% if item %}メニューを編集{% else %}メニューを追加{% endif %} | {{ APP_NAME }}{% endblock %}
+{% block page_title %}{% if item %}メニューを編集{% else %}メニューを追加{% endif %}{% endblock %}
+{% block back %}<a class="back" href="{% url 'accounts:menu_list' %}">‹ 料金表</a>{% endblock %}
+{% block content %}
+<div class="card">
+  <form method="post">{% csrf_token %}
+    {% include "_form.html" %}
+    <button class="btn">保存</button>
+  </form>
+</div>
+{% if item %}
+<form method="post" action="{% url 'accounts:menu_delete' item.pk %}" data-confirm="「{{ item.name }}」を削除します。よろしいですか？" class="mt">{% csrf_token %}
+  <button class="btn ghost" style="color:var(--danger)">このメニューを削除</button>
+</form>
+{% endif %}
+{% endblock %}

@@ -33,8 +33,9 @@
 <section class="section">
   <div class="section-title"><h2>SNS投稿</h2></div>
   {% for p in sns_posts %}<a class="list-item" href="{% url 'drafts:sns_detail' p.pk %}"><span class="grow"><span class="badge {{ p.status|badge_class }}">{{ p.get_status_display }}</span> {{ p.get_purpose_display }}<div class="meta">{{ p.feed_text|truncatechars:50 }}</div></span><span class="chev">›</span></a>{% endfor %}
-  <div class="btn-row"><a class="btn secondary" href="{% url 'drafts:sns_new' %}?karte={{ karte.pk }}">✨ 投稿文を作る</a><a class="btn" href="{% url 'reels:start' %}?karte={{ karte.pk }}">🎬 動画（リール）を作る</a></div>
-  {% for rp in karte.reel_posts.all %}<a class="list-item mt" href="{% url 'reels:workspace' rp.pk %}"><span class="grow">🎬 {{ rp.theme_title }} <span class="badge">{{ rp.get_status_display }}</span></span><span class="chev">›</span></a>{% endfor %}
+  <form method="post" action="{% url 'reels:start' %}">{% csrf_token %}<input type="hidden" name="karte" value="{{ karte.pk }}"><button class="btn">✨ この施術で投稿をつくる</button></form>
+  <p class="muted tiny" style="margin:6px 0 0">掲載OKの写真を取り込み、型（ビフォーアフター・お役立ちなど）と文章を提案します。動画を足せば動画になります。</p>
+  {% for rp in karte.reel_posts.all %}<a class="list-item mt" href="{% url 'reels:workspace' rp.pk %}"><span class="grow">{% if rp.output_format == 'reel' %}🎬{% elif rp.output_format == 'feed' %}🖼{% else %}💬{% endif %} {{ rp.theme_title|default:rp.type_label }} <span class="badge">{{ rp.get_status_display }}</span></span><span class="chev">›</span></a>{% endfor %}
   <p class="muted tiny mt">{% if customer.story_ok %}ストーリー掲載OK：悩みと結果を一般化して使います{% else %}ストーリー掲載NG：施術内容のみで作ります{% endif %}。{% if customer.photo_ok %}写真OK{% if not customer.face_ok %}（顔出しNG）{% endif %}{% else %}写真NG{% endif %}。</p>
 </section>
 
@@ -44,13 +45,14 @@
     {% for p in photos %}
     <div class="photo {% if not p.usable_for_sns %}blocked{% endif %}">
       <img src="{{ p.image.url }}" alt="">
-      <span class="tag badge {% if p.usable_for_sns %}ok{% else %}danger{% endif %}">{% if p.usable_for_sns %}掲載可{% else %}不可{% endif %}</span>
+      <span class="tag badge {% if p.usable_for_sns %}ok{% else %}danger{% endif %}">{{ p.get_role_display }}・{% if p.usable_for_sns %}掲載可{% else %}不可{% endif %}</span>
     </div>
     {% endfor %}
   </div>
   {% for p in photos %}
   <div class="photo-actions tiny">
     <span class="muted">写真{{ forloop.counter }}:</span>
+    <form method="post" action="{% url 'karte:photo_update' p.pk %}">{% csrf_token %}<input type="hidden" name="role" value="{% if p.role == 'before' %}after{% else %}before{% endif %}"><button class="btn sm ghost">{% if p.role == 'before' %}ビフォー→アフター{% else %}アフター→ビフォー{% endif %}</button></form>
     <form method="post" action="{% url 'karte:photo_update' p.pk %}">{% csrf_token %}<input type="hidden" name="face_visible" value="{% if p.face_visible %}0{% else %}1{% endif %}"><button class="btn sm ghost">{% if p.face_visible %}顔あり→なし{% else %}顔なし→あり{% endif %}</button></form>
     <form method="post" action="{% url 'karte:photo_update' p.pk %}">{% csrf_token %}<input type="hidden" name="sns_ok" value="{% if p.sns_ok %}0{% else %}1{% endif %}"><button class="btn sm ghost">{% if p.sns_ok %}掲載しない{% else %}掲載する{% endif %}</button></form>
     <form method="post" action="{% url 'karte:photo_delete' p.pk %}" data-confirm="写真を削除しますか？">{% csrf_token %}<button class="btn sm ghost" style="color:var(--danger)">削除</button></form>
@@ -61,6 +63,7 @@
     <input type="file" name="image" accept="image/*" multiple capture="environment">
     <div class="check"><input type="checkbox" name="sns_ok" id="p_sns_ok" {% if customer.photo_ok %}checked{% endif %}><label for="p_sns_ok">SNSに掲載してよい写真</label></div>
     <div class="check"><input type="checkbox" name="face_visible" id="p_face"><label for="p_face">顔が写っている</label></div>
+    <div class="field"><label for="p_role">この写真は</label><select name="role" id="p_role"><option value="after">アフター（仕上がり）</option><option value="before">ビフォー（施術前）</option></select></div>
     <button class="btn sm secondary">写真を追加</button>
   </form>
 </section>

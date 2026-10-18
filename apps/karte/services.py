@@ -88,7 +88,8 @@ def process_voice_memo(memo_id: int) -> None:
         karte = getattr(memo, "karte", None)
         if karte is None:
             extracted = ai_services.extract_karte(
-                transcript, memo.stylist.display_name, memo.visited_on, memo.customer.context_for_ai()
+                transcript, memo.stylist.display_name, memo.visited_on, memo.customer.context_for_ai(),
+                list(memo.stylist.menus.filter(is_active=True).values_list("name", flat=True)[:40]),
             )
             with transaction.atomic():
                 karte = create_karte_from_extraction(memo, extracted)

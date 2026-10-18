@@ -24,6 +24,7 @@ class AvailabilitySlot(TimeStampedModel):
     end_time = models.TimeField("終了")
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.OPEN)
     note = models.CharField("メモ", max_length=100, blank=True)
+    auto = models.BooleanField("稼働時間と予約から自動で作った枠", default=False)
 
     objects = TenantManager()
 

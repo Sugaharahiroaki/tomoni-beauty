@@ -140,7 +140,11 @@ def shot_visual(shot, frames):
     video = shot.get("video")
     if video and Path(video).exists():
         vf = [f"fps={FPS}", f"scale={W}:{H}:force_original_aspect_ratio=increase:flags=lanczos", f"crop={W}:{H}", "setsar=1", "tpad=stop_mode=clone:stop_duration=10"]
-        return video, vf, ("-ss", str(shot.get("video_start", 0))), "video"
+        start = float(shot.get("video_start") or 0)
+        length = shot.get("video_duration")
+        if length:  # 声でカットが伸びても最後で止まらないよう、収まる位置まで開始を前にずらす
+            start = max(0.0, min(start, float(length) - frames / FPS - 0.05))
+        return video, vf, ("-ss", f"{start:.2f}"), "video"
     vf = [cover(shot.get("focus_x", 0.5), shot.get("focus_y", 0.5), shot.get("tight", 1.0)), zoompan(shot.get("motion", "zoom_in"), frames), "setsar=1"]
     return shot["photo"], vf, (), shot.get("motion", "zoom_in")
 
@@ -251,7 +255,7 @@ def render_reel(script, out_path, work_dir, narrator=None, settings=None, thumbn
             plan = split_shots(c, frames)
             frames = sum(n for _, n in plan)
             for k, (shot, n) in enumerate(plan):
-                caption = drawtext(capfile, fit_size(c.get("caption", " ") or " ", CAPTION_SIZE[style]), CAPTION_Y[style], font, fade=(k == 0 and style != "hook"))
+                caption = drawtext(capfile, fit_size(c.get("caption", " ") or " ", CAPTION_SIZE[style]), c.get("caption_y") or CAPTION_Y[style], font, fade=(k == 0 and style != "hook"))
                 src, vf, pre, kind = shot_visual(shot, n)
                 out = work / f"clip{i:02d}_{k}.mp4"
                 encode_clip(run, src, ",".join(vf + [caption]), n, out, f"cut{i}-{k + 1} {kind}", pre)

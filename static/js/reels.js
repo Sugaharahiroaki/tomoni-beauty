@@ -1,4 +1,4 @@
-/* SNS動画（リール）: アップロード、ガイド付きカメラ、台本の写真差し替え、自分の声の録音、声の試聴 */
+/* SNS投稿: アップロード（役割つき）、ガイド付きカメラ、役割の変更、タブ、台本の写真差し替え、自分の声の録音、声の試聴、得意な悩みの候補 */
 (function () {
   "use strict";
   const csrf = () => window.TOMONI.csrf();
@@ -10,10 +10,11 @@
   const statusBox = document.getElementById("upload-status");
   let pending = 0;
 
-  async function uploadFile(file, slot, faceVisible) {
+  async function uploadFile(file, slot, faceVisible, role) {
     const fd = new FormData();
     fd.append("file", file);
-    fd.append("slot", slot);
+    fd.append("slot", slot || "");
+    if (role) fd.append("role", role);
     if (faceVisible) fd.append("face_visible", "1");
     const r = await fetch(uploadUrl, { method: "POST", headers: { "X-CSRFToken": csrf(), "X-Requested-With": "fetch" }, body: fd });
     const data = await r.json().catch(() => ({}));
@@ -27,13 +28,13 @@
     statusBox.textContent = text || "";
   }
 
-  async function sendFiles(files, slot) {
+  async function sendFiles(files, slot, role) {
     if (!uploadUrl || !files.length) return;
     pending += files.length;
     for (const f of files) {
       showStatus(`送っています…（あと${pending}つ）`);
       try {
-        await uploadFile(f, slot, false);
+        await uploadFile(f, slot, false, role);
       } catch (e) {
         toast(`${f.name}: ${e.message}`, "error");
       }
@@ -47,8 +48,88 @@
 
   document.querySelectorAll("input[data-upload-slot]").forEach((input) => {
     input.addEventListener("change", () => {
-      sendFiles(Array.from(input.files || []), input.getAttribute("data-upload-slot"));
+      sendFiles(Array.from(input.files || []), input.getAttribute("data-upload-slot"), input.getAttribute("data-upload-role") || "");
       input.value = "";
+    });
+  });
+
+  // ---- 役割（ビフォー／アフター／施術中／本人）の変更 ----
+  document.querySelectorAll(".role-select[data-role-url]").forEach((sel) => {
+    sel.addEventListener("change", async () => {
+      const fd = new FormData();
+      fd.append("role", sel.value);
+      try {
+        const r = await fetch(sel.getAttribute("data-role-url"), { method: "POST", headers: { "X-CSRFToken": csrf(), "X-Requested-With": "fetch" }, body: fd });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "変えられませんでした");
+        toast(`役割を「${data.asset.role_label}」にしました`, "success");
+      } catch (e) {
+        toast(e.message, "error");
+      }
+    });
+  });
+
+  // ---- ネットの素材（Pexels）を探して足す ----
+  const stockBox = document.getElementById("stock-box");
+  if (stockBox) {
+    const results = document.getElementById("stock-results");
+    const go = document.getElementById("stock-go");
+    async function searchStock() {
+      const q = document.getElementById("stock-q").value.trim();
+      const kind = document.getElementById("stock-kind").value;
+      if (!q) return;
+      go.disabled = true; results.innerHTML = '<span class="tiny muted">探しています…</span>';
+      try {
+        const r = await fetch(`${stockBox.getAttribute("data-stock-url")}?q=${encodeURIComponent(q)}&kind=${kind}`, { headers: { "X-Requested-With": "fetch" } });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "探せませんでした");
+        results.innerHTML = "";
+        if (!data.items.length) results.innerHTML = '<span class="tiny muted">見つかりませんでした</span>';
+        data.items.forEach((item) => {
+          const b = document.createElement("button");
+          b.type = "button"; b.className = "asset-thumb"; b.title = item.credit ? `撮影: ${item.credit}` : "";
+          b.innerHTML = `<img src="${item.thumb}" alt="">${item.kind === "video" ? '<span class="tag badge">▶</span>' : ""}`;
+          b.addEventListener("click", async () => {
+            b.disabled = true; showStatus("素材を取り込んでいます…");
+            const fd = new FormData();
+            Object.entries(item).forEach(([k, v]) => fd.append(k, v == null ? "" : v));
+            fd.append("role", "other");
+            try {
+              const r2 = await fetch(stockBox.getAttribute("data-stock-add-url"), { method: "POST", headers: { "X-CSRFToken": csrf(), "X-Requested-With": "fetch" }, body: fd });
+              const d2 = await r2.json();
+              if (!r2.ok) throw new Error(d2.error || "取り込めませんでした");
+              showStatus("取り込みました。画面を更新します…"); window.location.reload();
+            } catch (e) { toast(e.message, "error"); b.disabled = false; showStatus(""); }
+          });
+          results.appendChild(b);
+        });
+      } catch (e) { results.innerHTML = ""; toast(e.message, "error"); }
+      go.disabled = false;
+    }
+    go.addEventListener("click", searchStock);
+    document.getElementById("stock-q").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); searchStock(); } });
+  }
+
+  // ---- タブ（出来上がり画面） ----
+  document.querySelectorAll("[data-tabs]").forEach((bar) => {
+    bar.querySelectorAll(".tab").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        bar.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", b === btn));
+        const key = btn.getAttribute("data-tab");
+        document.querySelectorAll("[data-panel]").forEach((p) => { p.hidden = p.getAttribute("data-panel") !== key; });
+      });
+    });
+  });
+
+  // ---- 得意な悩みの候補（設定） ----
+  document.querySelectorAll("[data-add-concern]").forEach((b) => {
+    b.addEventListener("click", () => {
+      const ta = document.getElementById("id_focus_concerns_text");
+      if (!ta) return;
+      const lines = ta.value.split("\n").map((s) => s.trim()).filter(Boolean);
+      if (lines.length >= 3) { toast("得意な悩みは3つまでです", "error"); return; }
+      if (lines.indexOf(b.dataset.addConcern) === -1) lines.push(b.dataset.addConcern);
+      ta.value = lines.join("\n");
     });
   });
 
@@ -60,7 +141,7 @@
     const errBox = document.getElementById("camera-error");
     const shutter = document.getElementById("camera-shutter");
     const countEl = document.getElementById("camera-count");
-    let stream = null, recorder = null, mode = "photo", slot = "", taken = 0, recording = false, timer = null;
+    let stream = null, recorder = null, mode = "photo", slot = "", role = "", taken = 0, recording = false, timer = null;
 
     function recorderType() {
       if (typeof MediaRecorder === "undefined") return "";
@@ -68,7 +149,8 @@
     }
 
     async function open(btn) {
-      slot = btn.getAttribute("data-slot");
+      slot = btn.getAttribute("data-slot") || "";
+      role = btn.getAttribute("data-role") || "";
       mode = btn.getAttribute("data-mode") === "video" ? "video" : "photo";
       document.getElementById("camera-what").textContent = btn.getAttribute("data-what") || "";
       document.getElementById("camera-how").textContent = btn.getAttribute("data-how") || "";
@@ -111,7 +193,7 @@
       canvas.toBlob(async (blob) => {
         if (!blob) return;
         try {
-          await uploadFile(new File([blob], `photo_${Date.now()}.jpg`, { type: "image/jpeg" }), slot, false);
+          await uploadFile(new File([blob], `photo_${Date.now()}.jpg`, { type: "image/jpeg" }), slot, false, role);
           taken += 1; countEl.textContent = `${taken}つ撮れました`;
         } catch (e) { toast(e.message, "error"); }
       }, "image/jpeg", 0.92);
@@ -128,7 +210,7 @@
         const mime = recorder.mimeType || "video/webm";
         const ext = mime.includes("mp4") ? "mp4" : "webm";
         try {
-          await uploadFile(new File([new Blob(chunks, { type: mime })], `clip_${Date.now()}.${ext}`, { type: mime }), slot, false);
+          await uploadFile(new File([new Blob(chunks, { type: mime })], `clip_${Date.now()}.${ext}`, { type: mime }), slot, false, role);
           taken += 1; countEl.textContent = `${taken}つ撮れました`;
         } catch (e) { toast(e.message, "error"); }
       };

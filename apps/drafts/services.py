@@ -88,7 +88,7 @@ def generate_visit_drafts(karte, replace_existing: bool = False) -> list[Draft]:
     existing.filter(status__in=[Draft.Status.DRAFT, Draft.Status.APPROVED]).update(status=Draft.Status.DISCARDED)
 
     data = ai_services.generate_line_drafts(
-        karte.as_prompt_dict(), style_for(stylist), stylist.has_hotpepper, karte.next_visit_weeks, karte.visited_on
+        karte.as_prompt_dict(), style_for(stylist), stylist.has_hotpepper, karte.next_visit_weeks, karte.visited_on, stylist.menu_prompt_text()
     )
 
     drafts = []
@@ -141,7 +141,7 @@ def prepare_follow_up_draft(follow_up: FollowUp, today: date | None = None) -> t
         return None, "カルテが無いため文面を作れません"
 
     stylist = follow_up.stylist
-    data = ai_services.generate_line_drafts(karte.as_prompt_dict(), style_for(stylist), stylist.has_hotpepper, karte.next_visit_weeks, karte.visited_on)
+    data = ai_services.generate_line_drafts(karte.as_prompt_dict(), style_for(stylist), stylist.has_hotpepper, karte.next_visit_weeks, karte.visited_on, stylist.menu_prompt_text())
     link = create_tracked_link(stylist, customer, Draft.Kind.NEXT_VISIT)
     body = fill_placeholders(data.get("next_visit", ""), customer, link.url if link else None)
     draft = Draft.objects.create(

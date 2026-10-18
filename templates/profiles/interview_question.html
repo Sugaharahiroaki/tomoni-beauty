@@ -34,7 +34,7 @@
 </div>
 {% endblock %}
 {% block scripts %}
-<script src="{% static 'js/recorder.js' %}"></script>
+<script src="{% static 'js/recorder.js' %}?v={{ STATIC_VERSION }}"></script>
 <script>
 (function(){
   let blob = null, filename = "", duration = 0;

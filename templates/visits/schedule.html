@@ -1,0 +1,43 @@
+{% extends "base.html" %}{% load tomoni %}
+{% block title %}予約 {{ day.day|jadate }} | {{ APP_NAME }}{% endblock %}
+{% block page_title %}予約{% endblock %}
+{% block back %}<a class="back" href="{% url 'core:settings_menu' %}">‹ メニュー</a>{% endblock %}
+{% block topaction %}<a class="action" href="{% url 'visits:reservation_create' %}?at={{ day.day|date:'Y-m-d' }}T10:00">＋ 予約</a>{% endblock %}
+{% block content %}
+<div class="week-nav">
+  <a class="btn sm ghost" href="?date={{ prev_week|date:'Y-m-d' }}" aria-label="前の週">‹</a>
+  <strong class="grow center">{{ week.0.date|date:'n月j日' }}〜{{ week.6.date|date:'n月j日' }}</strong>
+  <a class="btn sm ghost" href="?date={{ next_week|date:'Y-m-d' }}" aria-label="次の週">›</a>
+</div>
+<div class="week-strip">
+  {% for d in week %}
+  <a class="week-day {% if d.is_selected %}selected{% endif %} {% if d.is_today %}today{% endif %}" href="?date={{ d.date|date:'Y-m-d' }}">
+    <span class="wd">{{ d.weekday }}</span><span class="dn">{{ d.date.day }}</span>
+    <span class="dots">{% if d.count %}<span class="dot res">{{ d.count }}</span>{% endif %}{% if d.has_open %}<span class="dot open"></span>{% endif %}</span>
+  </a>
+  {% endfor %}
+</div>
+
+<div class="row between tiny muted" style="margin:6px 0">
+  <span>{{ day.day|jadate }}（{{ day.weekday }}）予約 {{ day.booked }} 件{% if day.open_hours %} ・ 空き枠 {{ day.open_hours }} 時間{% endif %}</span>
+  <span><a href="{% url 'visits:reservation_list' %}">一覧</a> ・ <a href="{% url 'broadcasts:availability' %}">空き枠</a></span>
+</div>
+
+<div class="tl" style="height:{{ day.height }}px">
+  {% for h in day.hours %}
+  <a class="tl-hour" style="top:{{ h.top }}px" href="{% url 'visits:reservation_create' %}?at={{ h.at }}" title="{{ h.hour }}時に予約を登録"><span class="tl-label">{{ h.hour }}:00</span></a>
+  {% endfor %}
+  {% for s in day.slots %}
+  <div class="tl-slot {{ s.status }}" style="top:{{ s.top }}px;height:{{ s.height }}px"><span>{{ s.label }}</span></div>
+  {% endfor %}
+  {% for it in day.items %}
+  <a class="tl-res {{ it.status }}" style="top:{{ it.top }}px;height:{{ it.height }}px;left:calc(52px + (100% - 52px) * {{ it.left_f }});width:calc((100% - 52px) * {{ it.width_f }} - 4px)" href="{% url 'visits:reservation_edit' it.obj.pk %}">
+    <strong>{{ it.time }} {{ it.name }}</strong>
+    <span class="tiny">{{ it.menu|default:"メニュー未設定" }} ・ {{ it.duration }}分{% if it.obj.attributed_message %} ・ 案内後{% endif %}{% if it.status != "booked" %} ・ {{ it.obj.get_status_display }}{% endif %}</span>
+  </a>
+  {% endfor %}
+  {% if day.now_top is not None %}<div class="tl-now" style="top:{{ day.now_top }}px"></div>{% endif %}
+</div>
+<p class="muted tiny mt">空き枠は稼働時間（<a href="{% url 'accounts:stylist_settings' %}">基本情報</a>）から予約を引いて自動で出しています。空いている時間を押すと、その時刻で予約を登録できます。予約の長さは、料金表の所要時間か平均施術時間（{{ stylist.avg_service_minutes }}分）で表示しています。</p>
+<div class="chips"><span class="chip"><span class="legend res"></span>予約</span><span class="chip"><span class="legend visited"></span>来店済み</span><span class="chip"><span class="legend open"></span>空き枠</span></div>
+{% endblock %}

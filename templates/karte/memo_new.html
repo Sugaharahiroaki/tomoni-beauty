@@ -44,7 +44,7 @@
 </div>
 {% endblock %}
 {% block scripts %}
-<script src="{% static 'js/recorder.js' %}"></script>
+<script src="{% static 'js/recorder.js' %}?v={{ STATIC_VERSION }}"></script>
 <script>
 (function(){
   let customerId = "{{ customer.pk|default:'' }}";

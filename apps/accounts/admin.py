@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
-from .models import Stylist, User
+from .models import MenuItem, Stylist, User
 
 
 @admin.register(User)
@@ -22,3 +22,11 @@ class UserAdmin(BaseUserAdmin):
 class StylistAdmin(admin.ModelAdmin):
     list_display = ["display_name", "salon_name", "user", "onboarding_completed", "interview_completed", "created_at"]
     search_fields = ["display_name", "salon_name", "user__email"]
+
+
+@admin.register(MenuItem)
+class MenuItemAdmin(admin.ModelAdmin):
+    list_display = ["name", "stylist", "category", "price", "target", "is_active", "order"]
+    list_filter = ["category", "target", "is_active"]
+    search_fields = ["name", "stylist__display_name"]
+

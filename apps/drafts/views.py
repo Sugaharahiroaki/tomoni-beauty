@@ -115,6 +115,12 @@ def draft_discard(request, pk: int):
 # ---------------------------------------------------------------------------
 @stylist_required
 def sns_list(request):
+    """旧「文章の投稿」一覧。SNS投稿は1つの流れにまとめたので、新しい画面へ"""
+    return redirect("reels:home")
+
+
+@stylist_required
+def _sns_list_legacy(request):
     posts = SnsPost.objects.filter(stylist=request.stylist).exclude(status=SnsPost.Status.DISCARDED).select_related("customer", "karte")[:50]
     recent_kartes = Karte.objects.filter(stylist=request.stylist).select_related("customer")[:10]
     return render(request, "drafts/sns_list.html", {"posts": posts, "recent_kartes": recent_kartes})
@@ -122,6 +128,13 @@ def sns_list(request):
 
 @stylist_required
 def sns_new(request):
+    """旧「投稿文を作る」。新しい流れ（素材 → 型 → フック → 出来上がり）へ"""
+    messages.info(request, "SNS投稿は「投稿をつくる」にまとめました。写真や動画を入れると、型と文章を提案します。")
+    return redirect("reels:home")
+
+
+@stylist_required
+def _sns_new_legacy(request):
     karte = None
     if request.GET.get("karte"):
         karte = get_object_or_404(Karte.objects.select_related("customer"), pk=request.GET["karte"], stylist=request.stylist)

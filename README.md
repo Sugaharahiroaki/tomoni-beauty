@@ -29,6 +29,20 @@ python manage.py runserver
 
 http://localhost:8000/accounts/signup/ から美容師アカウントを作成 → 基本情報 → LINE（スキップ可）→ インタビュー → 「今日」画面。
 
+### SNS投稿（素材 → 型 → フック → 出来上がり）
+
+写真や動画を入れると、5つの型（ビフォーアフター／工程リール／似合わせ提案／お役立ち／人柄）から AI が次の型を提案し、フック3案 → 動画・フィード・ストーリーズを作ります。動画を1本でも入れると動画になります。詳細は `docs/REELS.md`。
+
+### デモデータ（SOYON なんば店）
+
+```bash
+python manage.py seed_demo            # demo@example.com / demo1234pass を作り直す
+python manage.py seed_demo --render   # 見本のSNS動画4本もレンダリング（FFmpeg 必須。GEMINI_API_KEY があればAIの声入り）
+```
+
+デモ美容師は SOYON なんば店（業務委託）の条件です。歩合はフリー55%・指名65%で、歩合から諸経費15%を引きます。メニュー・料金表はホットペッパー掲載（2026年10月時点）から20件です。
+`demo_assets/photos/`（美容師から預かった実写真）と `demo_assets/stylist_clips/`（AIで作った架空のスタイリストの動画）はリポジトリに入れていません。無ければカルテ写真は単色の仮画像になり、見本の動画は作られません。
+
 録音は HTTPS または localhost でのみ動作します（ブラウザの制約）。スマホ実機で試す場合は `ngrok` 等で HTTPS を用意し、`DJANGO_ALLOWED_HOSTS` と `DJANGO_CSRF_TRUSTED_ORIGINS` を設定してください。
 
 ## テスト

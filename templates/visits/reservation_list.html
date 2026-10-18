@@ -2,11 +2,11 @@
 {% block title %}予約 | {{ APP_NAME }}{% endblock %}
 {% block page_title %}予約・来店{% endblock %}
 {% block back %}<a class="back" href="{% url 'core:settings_menu' %}">‹ メニュー</a>{% endblock %}
-{% block topaction %}<a class="action" href="{% url 'visits:reservation_create' %}">＋ 予約</a>{% endblock %}
+{% block topaction %}<a class="action" href="{% url 'visits:schedule' %}">タイムライン</a>{% endblock %}
 {% block content %}
 <div class="card info tiny">ホットペッパー（SALON BOARD）の予約は手入力で登録します（第2段階で予約通知メールの自動取り込みを予定）。案内を送ってから14日以内の予約は「案内後の予約」として自動で記録されます。</div>
 <section class="section">
-  <div class="section-title"><h2>これからの予約</h2></div>
+  <div class="section-title"><h2>これからの予約</h2><a href="{% url 'visits:reservation_create' %}">＋ 予約</a></div>
   {% for r in upcoming %}
   <div class="list-item">
     <span class="grow"><strong>{{ r.reserved_for|jadatetime }}</strong> {{ r.customer.name|default:r.customer_name_raw }}

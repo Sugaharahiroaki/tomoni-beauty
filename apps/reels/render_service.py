@@ -49,6 +49,7 @@ def engine_script(post: ReelPost) -> dict:
         if asset.kind == "video":
             shot["video"] = asset.file.path
             shot["video_start"] = s.get("video_start") if s.get("video_start") is not None else (asset.best_start or 0)
+            shot["video_duration"] = asset.duration_sec
             shot["photo"] = asset.poster_path or asset.file.path
         else:
             shot["photo"] = asset.file.path
@@ -56,7 +57,9 @@ def engine_script(post: ReelPost) -> dict:
 
     scenes = []
     for i, scene in enumerate(script.get("scenes", [])):
-        scenes.append({"caption": scene.get("caption", ""), "caption_style": "hook" if i == 0 else "normal", "narration": scene.get("narration", "") if post.narration_mode != "none" else "", "duration": 2.0, "shots": [shot_for(s) for s in scene.get("shots", [])]})
+        shots = [shot_for(s) for s in scene.get("shots", [])]
+        pos_name, caption_y = caption_position_for(scene, shots, prefer="top" if i == 0 else "middle")
+        scenes.append({"caption": scene.get("caption", ""), "caption_style": "hook" if i == 0 else "normal", "caption_y": caption_y, "caption_pos": pos_name, "narration": scene.get("narration", "") if post.narration_mode != "none" else "", "duration": float(scene.get("duration") or 2.0), "shots": shots})
     cta = script.get("cta") or {}
     bg = assets.get(cta.get("background_asset_id")) or next(iter(assets.values()))
     bg_path = bg.poster_path if bg.kind == "video" else bg.file.path
@@ -64,11 +67,24 @@ def engine_script(post: ReelPost) -> dict:
     result = {
         "speaker_notes": speaker_notes(post),
         "scenes": scenes,
-        "cta": {"photo": bg_path or bg.file.path, "title": cta.get("title") or (profile.display_name() if profile else post.stylist.display_name), "text": cta.get("text", ""), "narration": cta.get("narration", "") if post.narration_mode != "none" else "", "duration": 2.0},
+        "cta": {"photo": bg_path or bg.file.path, "title": cta.get("title") or (profile.display_name() if profile else post.stylist.display_name), "text": cta.get("text", ""), "narration": cta.get("narration", "") if post.narration_mode != "none" else "", "duration": float(cta.get("duration") or 2.0)},
     }
     if post.bgm and post.bgm.file:
         result["bgm"] = {"file": post.bgm.file.path, "start": 0, "category": post.bgm.category, "level_duck": post.bgm.level_duck, "level_base": post.bgm.level_base}
     return result
+
+
+def caption_position_for(scene: dict, shots: list[dict], prefer: str) -> tuple[str, float]:
+    """台本で位置が指定されていればそれ、無ければ最初の映像から顔・髪を避ける帯を選ぶ"""
+    from .engine.layout import CANDIDATES, caption_position
+
+    pos = scene.get("caption_pos") or "auto"
+    if pos in CANDIDATES:
+        return pos, CANDIDATES[pos]
+    if not shots:
+        return prefer, CANDIDATES[prefer]
+    first = shots[0]
+    return caption_position(first.get("photo") or first.get("video"), first.get("focus_x", 0.5), first.get("focus_y", 0.5), first.get("tight", 1.0), prefer=prefer)
 
 
 def narrator_for(post: ReelPost, engine_settings: dict):

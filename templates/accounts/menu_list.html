@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}メニュー・料金表 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}メニュー・料金表{% endblock %}
+{% block back %}<a class="back" href="{% url 'core:settings_menu' %}">‹ メニュー</a>{% endblock %}
+{% block content %}
+<div class="card info">
+  <p class="tiny" style="margin:0">LINEの文面・返信案・告知文で料金に触れるときは、ここに登録した金額だけを使います（登録が無い料金は書きません）。料金が変わったら、ここを直してください。</p>
+</div>
+
+<div class="row between mt">
+  <h2 style="margin:0">登録済み {{ count }}件</h2>
+  <a class="btn sm" href="{% url 'accounts:menu_add' %}">＋ 追加</a>
+</div>
+
+{% for label, items in groups %}
+<section class="section">
+  <div class="section-title"><h2>{{ label }}</h2></div>
+  {% for m in items %}
+  <a class="list-item" href="{% url 'accounts:menu_edit' m.pk %}">
+    <span class="grow">
+      {{ m.name }}{% if not m.is_active %} <span class="badge">使わない</span>{% endif %}
+      <span class="meta">{{ m.get_category_display }}{% if m.minutes %} ・ {{ m.minutes }}分{% endif %}{% if m.note %} ・ {{ m.note }}{% endif %}</span>
+    </span>
+    <strong style="white-space:nowrap">{{ m.price_text }}</strong>
+    <span class="chev">›</span>
+  </a>
+  {% endfor %}
+</section>
+{% empty %}
+<p class="muted mt">まだ登録がありません。下の欄にホットペッパーのクーポン名と料金を貼り付けると、まとめて登録できます。</p>
+{% endfor %}
+
+<div class="card mt">
+  <h3>種類ごとの所要時間の目安</h3>
+  <p class="muted tiny">予約のメニュー名が料金表に合わないとき、この目安で予約の長さ（タイムライン・空き枠）を決めます。料金表の各メニューに所要時間を入れておけば、そちらが優先されます。複数の種類が組み合わさった予約は、一番長いもの＋30分ずつで見積もります。</p>
+  <form method="post" action="{% url 'accounts:category_minutes' %}">{% csrf_token %}
+    <div class="metric-grid">{% for key, label, value, default in categories %}<label class="tiny">{{ label }}<input type="number" name="cat_{{ key }}" min="5" step="5" inputmode="numeric" value="{{ value|default_if_none:'' }}" placeholder="{{ default }}"></label>{% endfor %}</div>
+    <button class="btn sm secondary mt">目安を保存</button>
+  </form>
+</div>
+<div class="card mt">
+  <form method="post" action="{% url 'accounts:menu_bulk' %}">{% csrf_token %}
+    {% include "_form.html" with form=bulk_form %}
+    <button class="btn secondary">まとめて追加</button>
+  </form>
+</div>
+{% endblock %}

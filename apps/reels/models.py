@@ -1,7 +1,7 @@
-"""SNS動画投稿（リール）のデータ。
+"""SNS投稿のデータ（動画・フィード・ストーリーズを1つの流れで扱う）。
 
-流れ：型を選ぶ（カルテから写真を取り込める）→ 撮影リストに沿って撮る → 台本（Claude）→ 確認・修正
-      → 動画作成（FFmpeg・Gemini TTS）→ 確認 → 予約投稿（Instagram / YouTube ショート / Threads）
+流れ：素材を入れる（写真・動画・カルテの写真）→ 型を決める（AIのおすすめ／自分で）→ フックを選ぶ
+      → 出来上がり（動画＝台本→FFmpeg→Gemini TTS／フィード・ストーリーズ＝文章）→ 投稿（予約投稿 or コピー）
 """
 
 import uuid
@@ -13,17 +13,20 @@ from django.utils import timezone
 from apps.core.models import TimeStampedModel
 
 from .fields import SecretTextField
+from .post_types import FORMATS, HOOK_TYPE_LABELS, PURPOSES, ROLES, TYPE_CHOICES, TYPE_LABELS
 from .recipes import TEMPLATE_KEYS, TEMPLATE_LABELS
 
 POST_STATUSES = [
-    ("DRAFT", "撮影中"),
+    ("DRAFT", "作業中"),
+    ("HOOKING", "フックを考え中"),
     ("SCRIPTING", "台本づくり中"),
     ("REVIEW", "台本の確認待ち"),
     ("RENDERING", "動画を作成中"),
-    ("READY", "動画の確認待ち"),
+    ("READY", "出来上がり"),
     ("SCHEDULED", "予約済み"),
     ("PUBLISHED", "公開済み"),
     ("FAILED", "失敗"),
+    ("SKIPPED", "スキップ"),
 ]
 
 
@@ -39,7 +42,12 @@ class ReelProfile(TimeStampedModel):
     stylist = models.OneToOneField("accounts.Stylist", on_delete=models.CASCADE, primary_key=True, related_name="reel_profile")
     brand_name = models.CharField("動画に出す名前（サロン名か美容師名）", max_length=100, blank=True)
     default_cta = models.CharField("いつもの呼びかけ", max_length=100, blank=True, default="ご相談はDMかプロフィールから")
-    posts_per_month = models.PositiveSmallIntegerField("月の投稿本数の目安", default=8)
+    posts_per_week = models.PositiveSmallIntegerField("週の投稿本数の目安", default=2)
+    # 投稿の軸（テーマは一貫させ、見せ方＝型を変える）
+    focus_concerns = models.JSONField("得意な悩み（1〜3個）", default=list, blank=True)
+    purpose = models.CharField("投稿の目的", max_length=20, choices=PURPOSES, default="nomination")
+    favorite_types = models.JSONField("よく使う型", default=list, blank=True)
+    avoid_types = models.JSONField("避けたい型", default=list, blank=True)
     ai_label = models.BooleanField("AI音声の表示を付ける", default=True)
 
     narration_mode = models.CharField("ナレーション", max_length=10, default="ai", choices=[("ai", "AIの声"), ("own", "本人の声で録音"), ("none", "声なし（テロップとBGMだけ）")])
@@ -63,7 +71,7 @@ class ReelProfile(TimeStampedModel):
     post_to_threads = models.BooleanField("Threadsに投稿", default=False)
 
     class Meta:
-        verbose_name = verbose_name_plural = "SNS動画の設定"
+        verbose_name = verbose_name_plural = "SNS投稿の設定"
 
     def __str__(self):
         return f"{self.stylist} のSNS動画設定"
@@ -82,6 +90,10 @@ class ReelProfile(TimeStampedModel):
 
     def display_name(self) -> str:
         return self.brand_name or self.stylist.salon_name or self.stylist.display_name
+
+    @property
+    def purpose_label(self) -> str:
+        return dict(PURPOSES).get(self.purpose, self.purpose)
 
 
 class BgmTrack(TimeStampedModel):
@@ -127,7 +139,28 @@ class ReelPost(TimeStampedModel):
     stylist = models.ForeignKey("accounts.Stylist", on_delete=models.CASCADE, related_name="reel_posts")
     karte = models.ForeignKey("karte.Karte", on_delete=models.SET_NULL, null=True, blank=True, related_name="reel_posts")
     customer = models.ForeignKey("customers.Customer", on_delete=models.SET_NULL, null=True, blank=True, related_name="reel_posts")
-    template_key = models.CharField("型", max_length=20, choices=[(k, TEMPLATE_LABELS[k]) for k in TEMPLATE_KEYS])
+    post_type = models.CharField("型", max_length=20, choices=TYPE_CHOICES, blank=True)
+    template_key = models.CharField("動画の構成", max_length=20, choices=[(k, TEMPLATE_LABELS[k]) for k in TEMPLATE_KEYS], blank=True)
+    output_format = models.CharField("出来上がる形", max_length=10, choices=FORMATS, default="reel")
+    selection_mode = models.CharField("型の選び方", max_length=10, choices=[("manual", "自分で選んだ"), ("ai", "AIのおすすめ")], blank=True)
+    theme = models.CharField("テーマ（得意な悩み）", max_length=100, blank=True)
+    hooks = models.JSONField("フック案", default=list, blank=True)
+    hook_regenerations = models.PositiveSmallIntegerField("フックを作り直した回数", default=0)
+    selected_hook = models.JSONField("選んだフック", default=dict, blank=True)
+    carousel = models.JSONField("フィード各枚の文字", default=list, blank=True)
+    stories = models.JSONField("ストーリーズ", default=list, blank=True)
+    cover_text = models.CharField("表紙の文字", max_length=60, blank=True)
+    caption_check = models.JSONField("キャプションの6要素", default=dict, blank=True)
+    hype_check = models.JSONField("誇大表現チェック", default=dict, blank=True)
+    tracked_link = models.ForeignKey("lineapp.TrackedLink", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    # 成果（手入力・空欄可）
+    m_saves = models.PositiveIntegerField("保存数", null=True, blank=True)
+    m_profile_visits = models.PositiveIntegerField("プロフィールアクセス", null=True, blank=True)
+    m_link_clicks = models.PositiveIntegerField("予約リンククリック", null=True, blank=True)
+    m_dms = models.PositiveIntegerField("DM", null=True, blank=True)
+    m_new_customers = models.PositiveIntegerField("インスタ経由の新規", null=True, blank=True)
+    metrics_note = models.CharField("成果のメモ", max_length=200, blank=True)
+    metrics_updated_at = models.DateTimeField(null=True, blank=True)
     menu_items = models.JSONField("今日の施術", default=list, blank=True)
     status = models.CharField("状態", max_length=12, choices=POST_STATUSES, default="DRAFT")
     theme_title = models.CharField("テーマ", max_length=100, blank=True)
@@ -159,19 +192,72 @@ class ReelPost(TimeStampedModel):
     error = models.TextField(blank=True)
 
     class Meta:
-        verbose_name = verbose_name_plural = "SNS動画投稿"
+        verbose_name = verbose_name_plural = "SNS投稿"
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"{self.theme_title or self.template_label} ({self.get_status_display()})"
+        return f"{self.theme_title or self.type_label} ({self.get_status_display()})"
 
     @property
     def template_label(self) -> str:
         return TEMPLATE_LABELS.get(self.template_key, self.template_key)
 
     @property
+    def type_label(self) -> str:
+        return TYPE_LABELS.get(self.post_type) or self.template_label or "投稿"
+
+    @property
+    def format_label(self) -> str:
+        return dict(FORMATS).get(self.output_format, self.output_format)
+
+    @property
+    def hook_type_label(self) -> str:
+        return HOOK_TYPE_LABELS.get((self.selected_hook or {}).get("type", ""), "")
+
+    @property
     def is_busy(self) -> bool:
-        return self.status in ("SCRIPTING", "RENDERING")
+        return self.status in ("HOOKING", "SCRIPTING", "RENDERING")
+
+    @property
+    def is_done(self) -> bool:
+        return self.status in ("READY", "SCHEDULED", "PUBLISHED", "FAILED", "SKIPPED")
+
+    @property
+    def stage(self) -> int:
+        """4ステップ（素材／型／フック／出来上がり）のどこか"""
+        if self.status in ("READY", "SCHEDULED", "PUBLISHED", "FAILED", "SKIPPED", "RENDERING", "REVIEW", "SCRIPTING"):
+            return 3
+        if self.status == "HOOKING" or (self.post_type and self.hooks):
+            return 2
+        if self.post_type:
+            return 2 if self.hooks else 1
+        return 0
+
+    @property
+    def hype_errors(self) -> list:
+        return [f for f in (self.hype_check or {}).get("findings", []) if f.get("severity") == "error"]
+
+    @property
+    def telops(self) -> list[str]:
+        if self.script:
+            return [s.get("caption", "") for s in self.script.get("scenes", []) if s.get("caption")]
+        return [s.get("title") or s.get("text", "") for s in (self.carousel or [])]
+
+    @property
+    def manual_result_score(self) -> float | None:
+        """成果のまとめ（予約リンククリック×3＋DM×3＋新規×5＋プロフィール×1＋保存×0.5）"""
+        if self.metrics_updated_at is None:
+            return None
+        return (self.m_link_clicks or 0) * 3 + (self.m_dms or 0) * 3 + (self.m_new_customers or 0) * 5 + (self.m_profile_visits or 0) + (self.m_saves or 0) * 0.5
+
+    @property
+    def recommendation(self):
+        return self.recommendations.order_by("-created_at").first()
+
+    def get_workspace_url(self) -> str:
+        from django.urls import reverse
+
+        return reverse("reels:workspace", kwargs={"pk": self.pk})
 
     @property
     def step(self) -> int:
@@ -199,12 +285,13 @@ class MediaAsset(TimeStampedModel):
     height = models.PositiveIntegerField(null=True, blank=True)
     duration_sec = models.FloatField(null=True, blank=True)
     slot = models.CharField("撮影リストのどの項目か", max_length=40, blank=True)
+    role = models.CharField("役割", max_length=10, choices=ROLES, blank=True)
     order_index = models.PositiveSmallIntegerField(default=0)
     taken_at = models.DateTimeField(null=True, blank=True)
     face_visible = models.BooleanField("顔が写っている", default=False)
     analysis = models.JSONField(default=dict, blank=True)
     best_start = models.FloatField(null=True, blank=True)
-    source = models.CharField(max_length=10, default="own", choices=[("own", "撮影"), ("karte", "カルテの写真")])
+    source = models.CharField(max_length=10, default="own", choices=[("own", "撮影"), ("karte", "カルテの写真"), ("library", "前に撮ったもの"), ("stock", "ネットの素材")])
     karte_photo = models.ForeignKey("karte.KartePhoto", on_delete=models.SET_NULL, null=True, blank=True, related_name="reel_assets")
 
     class Meta:
@@ -227,6 +314,18 @@ class MediaAsset(TimeStampedModel):
         if self.kind == "video":
             return (self.analysis or {}).get("poster_url") or ""
         return self.file.url if self.file else ""
+
+    @property
+    def role_label(self) -> str:
+        return dict(ROLES).get(self.role, "未設定")
+
+    @property
+    def is_stock(self) -> bool:
+        return self.source == "stock"
+
+    @property
+    def credit(self) -> str:
+        return (self.analysis or {}).get("credit", "")
 
 
 class NarrationTake(TimeStampedModel):
@@ -303,3 +402,33 @@ class ShotExample(TimeStampedModel):
 
     class Meta:
         ordering = ["template_key", "slot_key"]
+
+
+class TypeRecommendation(TimeStampedModel):
+    """AIおまかせの提案と、美容師の反応（採用／変更／スキップ）の記録"""
+
+    REACTIONS = [("pending", "未回答"), ("accepted", "採用"), ("changed", "変更"), ("skipped", "スキップ")]
+
+    stylist = models.ForeignKey("accounts.Stylist", on_delete=models.CASCADE, related_name="type_recommendations")
+    post = models.ForeignKey(ReelPost, on_delete=models.SET_NULL, null=True, blank=True, related_name="recommendations")
+    post_type = models.CharField("提案した型", max_length=20, choices=TYPE_CHOICES)
+    alternatives = models.JSONField("次点", default=list, blank=True)
+    scores = models.JSONField("スコアの内訳", default=dict, blank=True)
+    reason = models.TextField("理由", blank=True)
+    missing = models.JSONField("足りない素材", default=dict, blank=True)
+    context = models.JSONField("計算に使った材料", default=dict, blank=True)
+    reaction = models.CharField("反応", max_length=10, choices=REACTIONS, default="pending")
+    changed_to = models.CharField("変更先の型", max_length=20, blank=True)
+    reacted_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = verbose_name_plural = "型の提案"
+
+    @property
+    def type_label(self) -> str:
+        return TYPE_LABELS.get(self.post_type, self.post_type)
+
+    def react(self, reaction: str, changed_to: str = "") -> None:
+        self.reaction, self.changed_to, self.reacted_at = reaction, changed_to, timezone.now()
+        self.save(update_fields=["reaction", "changed_to", "reacted_at", "updated_at"])

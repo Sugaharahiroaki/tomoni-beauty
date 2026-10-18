@@ -13,7 +13,7 @@ from apps.core.media_access import allowed
 from apps.karte.models import Karte, KartePhoto
 from apps.reels import services
 from apps.reels.ai import check_script, generate_script, mock_script
-from apps.reels.engine.render import duck_envelope, fit_size, split_shots
+from apps.reels.engine.render import duck_envelope, fit_size, shot_visual, split_shots
 from apps.reels.models import BgmTrack, ReelPost
 from apps.reels.publishing import AI_NOTICE, best_time, caption_for
 from apps.reels.recipes import TEMPLATES, choose_template, shot_list, theme_for
@@ -46,7 +46,7 @@ def karte(stylist, customer):
 def test_choose_template_by_menu_and_purpose():
     assert choose_template(["カラー"], []) == "before_after"
     assert choose_template(["トリートメント"], []) == "process"
-    assert choose_template([], [], purpose="first_timer") == "process"
+    assert choose_template([], [], purpose="first_timer") == "self_intro"
     assert choose_template([], [], purpose="repeat") == "care_tips"
 
 
@@ -61,7 +61,7 @@ def test_shot_list_sorted_by_work_and_theme():
     assert [s["work"] for s in slots] == sorted(s["work"] for s in slots)
     assert all({"key", "frame", "what", "how", "caption", "narration"} <= set(s) for s in slots)
     assert theme_for("before_after", ["カラー"]) == "カラーのビフォーアフター"
-    assert set(TEMPLATES) == {"before_after", "process", "care_tips", "stylist_story", "daily"}
+    assert set(TEMPLATES) == {"before_after", "process", "care_tips", "stylist_story", "daily", "self_intro", "color_catalog"}
 
 
 # ------------------------------------------------------------------ 開始・素材
@@ -69,11 +69,11 @@ def test_shot_list_sorted_by_work_and_theme():
 
 def test_start_post_imports_only_usable_photos(stylist, customer, karte):
     post = services.start_post(stylist, karte=karte, uses_story=True)
-    assert post.template_key == "before_after"
+    assert post.post_type == "" and post.template_key == "" and post.stage == 0  # 型はあとで決める（素材から始める）
     assert post.customer == customer and post.face_allowed is False and post.uses_story is True
     assert post.assets.count() == 1  # 顔あり・掲載NGは取り込まない
     asset = post.assets.first()
-    assert asset.source == "karte" and asset.kind == "photo" and asset.mime == "image/jpeg"
+    assert asset.source == "karte" and asset.kind == "photo" and asset.mime == "image/jpeg" and asset.role == "after"
     assert post.usable_assets().count() == 1
 
 
@@ -96,7 +96,7 @@ def test_save_asset_face_filter(stylist, customer, karte):
 
 def test_generate_script_mock_and_pii_check(stylist, customer, karte, settings):
     settings.AI_FAKE = True
-    post = services.start_post(stylist, karte=karte, import_photos=True)
+    post = services.start_post(stylist, karte=karte, import_photos=True, template_key="before_after")
     services.save_asset(post, _upload(), "b.png", "image/png", 1000, "photo", "after_back")
     services.save_asset(post, _upload(), "c.png", "image/png", 1000, "photo", "bowl")
     script, notes = generate_script(post)
@@ -110,7 +110,7 @@ def test_generate_script_mock_and_pii_check(stylist, customer, karte, settings):
 
 
 def test_check_script_detects_problems(stylist, customer, karte):
-    post = services.start_post(stylist, karte=karte, import_photos=True)
+    post = services.start_post(stylist, karte=karte, import_photos=True, template_key="before_after")
     assets = list(post.usable_assets())
     script = mock_script(post, assets)
     assert check_script(script, assets, post) == []
@@ -121,7 +121,7 @@ def test_check_script_detects_problems(stylist, customer, karte):
 
 
 def test_edit_script_swaps_asset_and_text(stylist, customer, karte):
-    post = services.start_post(stylist, karte=karte, import_photos=True)
+    post = services.start_post(stylist, karte=karte, import_photos=True, template_key="before_after")
     other = services.save_asset(post, _upload(), "b.png", "image/png", 1000, "photo", "extra")
     generate_script(post)
     post.refresh_from_db()
@@ -138,7 +138,7 @@ def test_pick_bgm_prefers_template_category(stylist, customer, karte, settings):
     settings.BGM_REQUIRE_LICENSE = False
     BgmTrack.objects.create(title="calm1", category="calm", file=SimpleUploadedFile("c.mp3", b"\x00" * 100))
     BgmTrack.objects.create(title="bright1", category="bright", file=SimpleUploadedFile("b.mp3", b"\x00" * 100))
-    post = services.start_post(stylist, karte=karte, import_photos=True)
+    post = services.start_post(stylist, karte=karte, import_photos=True, template_key="before_after")
     generate_script(post)
     post.refresh_from_db()
     assert post.bgm.category == "bright"  # before_after → bright が先頭
@@ -234,23 +234,46 @@ def test_connect_start_redirects_to_provider(client_logged, settings):
 
 
 def test_reel_pages_and_flow(client_logged, stylist, customer, karte):
+    """素材 → 型 → フック → 出来上がり（動画）の一連の流れ"""
     assert client_logged.get(reverse("reels:home")).status_code == 200
-    assert client_logged.get(reverse("reels:start") + f"?karte={karte.pk}").status_code == 200
-    resp = client_logged.post(reverse("reels:start") + f"?karte={karte.pk}", {"template_key": "", "menu_items": "カラー", "uses_story": "on", "import_photos": "on"})
+    assert client_logged.get(reverse("reels:start")).status_code == 302  # GET では作らない
+    resp = client_logged.post(reverse("reels:start"), {"karte": karte.pk})
     assert resp.status_code == 302
     post = ReelPost.objects.get(stylist=stylist)
     url = reverse("reels:workspace", kwargs={"pk": post.pk})
     page = client_logged.get(url)
-    assert page.status_code == 200 and "撮影リスト" not in page.content.decode() or page.status_code == 200
-    # 素材アップロード（JSON）
-    up = client_logged.post(reverse("reels:asset_upload", kwargs={"pk": post.pk}), {"file": _upload("b.png"), "slot": "after_back"}, HTTP_X_REQUESTED_WITH="fetch")
-    assert up.status_code == 200 and up.json()["asset"]["usable"] is True
-    # 台本（Fake → 同期で REVIEW）
-    assert client_logged.post(reverse("reels:script_generate", kwargs={"pk": post.pk})).status_code == 302
+    assert page.status_code == 200 and "型を決める" in page.content.decode()
+    # 素材（役割つき）
+    up = client_logged.post(reverse("reels:asset_upload", kwargs={"pk": post.pk}), {"file": _upload("b.png"), "role": "after"}, HTTP_X_REQUESTED_WITH="fetch")
+    assert up.status_code == 200 and up.json()["asset"]["usable"] is True and up.json()["asset"]["role"] == "after"
+    aid = up.json()["asset"]["id"]
+    r = client_logged.post(reverse("reels:asset_role", kwargs={"pk": post.pk, "asset_id": aid}), {"role": "before"}, HTTP_X_REQUESTED_WITH="fetch")
+    assert r.status_code == 200 and r.json()["asset"]["role"] == "before"
+    # 型：おすすめと、素材が足りない型の表示
+    body = client_logged.get(url + "?step=type").content.decode()
+    assert "AIのおすすめ" in body and "足りない素材" in body
+    assert post.recommendations.filter(reaction="pending").exists()
+    client_logged.post(reverse("reels:choose_type", kwargs={"pk": post.pk}), {"post_type": "suggestion"})  # アフター2枚が必要 → 選べない
     post.refresh_from_db()
-    assert post.status == "REVIEW"
+    assert post.post_type == ""
+    resp = client_logged.post(reverse("reels:choose_type", kwargs={"pk": post.pk}), {"post_type": "before_after", "mode": "manual"})
+    assert resp.status_code == 302
+    post.refresh_from_db()
+    assert post.post_type == "before_after" and post.template_key == "before_after" and post.output_format == "reel"
+    assert post.status == "DRAFT" and len(post.hooks) == 3 and post.stage == 2  # Fake は同期でフックができる
+    assert post.recommendations.first().reaction in ("accepted", "changed")
+    assert "このフックで作る" in client_logged.get(url).content.decode()
+    # フックを選ぶ → 台本 → 動画作成の依頼（FFmpeg は呼ばない）
+    with mock.patch("apps.reels.content.services.request_render") as rr, mock.patch("apps.reels.content.services.options", return_value={"ffmpeg_available": True}):
+        resp = client_logged.post(reverse("reels:choose_hook", kwargs={"pk": post.pk}), {"hook": "0"})
+    assert resp.status_code == 302
+    post.refresh_from_db()
+    assert post.selected_hook["text"] == post.hooks[0]["text"]
+    assert post.script and post.script["scenes"][0]["narration"] == post.selected_hook["text"]
+    assert post.status == "REVIEW" and post.hype_check["passed"] is True and post.caption_check
+    rr.assert_called_once()
     assert client_logged.get(url).status_code == 200
-    # 保存
+    # 台本の保存
     resp = client_logged.post(reverse("reels:script_edit", kwargs={"pk": post.pk}), {"caption_0": "新しい", "narration_0": "セリフ", "cta_text": "DMで", "ig_caption": "本文", "hashtags": "#a #b", "yt_title": "題", "yt_description": "説明", "narration_mode": "none", "bgm": "", "action": "save"})
     assert resp.status_code == 302
     post.refresh_from_db()
@@ -258,12 +281,13 @@ def test_reel_pages_and_flow(client_logged, stylist, customer, karte):
     assert client_logged.get(reverse("reels:status", kwargs={"pk": post.pk})).json()["status"] == "REVIEW"
     assert client_logged.get(reverse("reels:history")).status_code == 200
     assert client_logged.get(reverse("reels:settings")).status_code == 200
-    resp = client_logged.post(reverse("reels:settings"), {"brand_name": "salon", "default_cta": "DM", "posts_per_month": 8, "narration_mode": "none", "voice_name": "Sulafat", "speaker_gender": "女性", "speaker_age": "30代", "ai_label": "on", "post_to_instagram": "on"})
+    resp = client_logged.post(reverse("reels:settings"), {"focus_concerns_text": "色落ち\n根元の境目", "purpose": "weekday_daytime", "favorite_types": ["before_after"], "avoid_types": ["personality"], "posts_per_week": 3, "brand_name": "salon", "default_cta": "DM", "narration_mode": "none", "voice_name": "Sulafat", "speaker_gender": "女性", "speaker_age": "30代", "ai_label": "on", "post_to_instagram": "on"})
     assert resp.status_code == 302
+    profile = services.profile_of(stylist)
+    assert profile.focus_concerns == ["色落ち", "根元の境目"] and profile.purpose == "weekday_daytime" and profile.avoid_types == ["personality"] and profile.posts_per_week == 3
     # 削除
     assert client_logged.post(reverse("reels:delete", kwargs={"pk": post.pk})).status_code == 302
     assert not ReelPost.objects.filter(pk=post.pk).exists()
-
 
 def test_tenant_isolation(client_logged, other_stylist):
     post = services.start_post(other_stylist, template_key="daily")
@@ -271,7 +295,7 @@ def test_tenant_isolation(client_logged, other_stylist):
 
 
 def test_script_edit_blocks_render_on_pii(client_logged, stylist, customer, karte):
-    post = services.start_post(stylist, karte=karte, import_photos=True)
+    post = services.start_post(stylist, karte=karte, import_photos=True, template_key="before_after")
     services.save_asset(post, _upload(), "b.png", "image/png", 1000, "photo", "after_back")
     generate_script(post)
     post.refresh_from_db()
@@ -320,3 +344,91 @@ def test_render_smoke(stylist, customer, karte, settings, tmp_path):
     assert post.status == "READY" and post.video and post.thumbnail
     assert (tmp_path / post.video.name).exists() and post.duration_sec and post.duration_sec >= 3.5
     assert "OK" in log
+
+
+def test_karte_photos_fill_story_slots_not_optional_salon(stylist, customer, karte):
+    """カルテの写真（たいてい仕上がり）は、撮影順で先頭の「店内（任意）」ではなく台本の先頭の必須項目に入る"""
+    post = services.start_post(stylist, template_key="before_after", karte=karte)
+    asset = post.assets.get()
+    assert asset.slot == "after_hero"
+    assert asset.slot != "salon"
+
+
+def test_video_start_shifts_back_so_long_cut_does_not_freeze(tmp_path):
+    """ナレーションでカットが伸びたら、動画の開始位置を前にずらして最後まで動くようにする"""
+    clip = tmp_path / "clip.mp4"
+    clip.write_bytes(b"x")
+    _, _, pre, kind = shot_visual({"video": str(clip), "video_start": 3.0, "video_duration": 5.0}, 120)  # 4秒のカット
+    assert kind == "video" and pre == ("-ss", "0.95")
+    _, _, pre, _ = shot_visual({"video": str(clip), "video_start": 1.0, "video_duration": 5.0}, 60)  # 収まるならそのまま
+    assert pre == ("-ss", "1.00")
+    _, _, pre, _ = shot_visual({"video": str(clip), "video_start": 2.0, "video_duration": 3.0}, 150)  # クリップより長いカットは先頭から
+    assert pre == ("-ss", "0.00")
+
+
+# ------------------------------------------------------------------ 型の追加（自己紹介・作品集・1日）と見本
+
+
+def test_face_default_follows_who_is_featured(stylist):
+    assert services.start_post(stylist, template_key="self_intro").face_allowed is True  # 本人が主役
+    assert services.start_post(stylist, template_key="daily").face_allowed is True
+    assert services.start_post(stylist, template_key="color_catalog").face_allowed is False  # お客様の作品集
+    assert services.start_post(stylist, template_key="before_after").face_allowed is False
+
+
+def test_theme_for_new_templates():
+    assert theme_for("self_intro") == "はじめまして（自己紹介）"
+    assert theme_for("color_catalog") == "デザインカラーの作品集"
+    assert theme_for("color_catalog", ["ブリーチ"]) == "ブリーチの作品集"
+    assert theme_for("daily") == "スタイリストの1日"
+
+
+def test_mock_script_fills_placeholders_and_uses_all_works(stylist):
+    stylist.salon_name, stylist.salon_access = "SOYON なんば店", "なんば駅から徒歩1分"
+    stylist.save()
+    post = services.start_post(stylist, template_key="self_intro", menu_items=["ハイライト"])
+    for slot in ("greeting", "works", "works", "works", "counsel"):
+        services.save_asset(post, _upload(), "a.png", "image/png", 100, "photo", slot)
+    script = mock_script(post, list(post.usable_assets()))
+    hook = script["scenes"][0]
+    assert hook["caption"] == "はじめまして\nSOYON なんば店の佐藤です"
+    assert "{" not in "".join(s["caption"] + s["narration"] for s in script["scenes"])
+    works = next(s for s in script["scenes"] if s["role"] == "得意")
+    assert len(works["shots"]) == 3 and works["caption"] == "得意なのは\nハイライト"
+
+
+def test_mock_script_daily_area_and_time_prefix(stylist):
+    stylist.salon_access = "なんば駅から徒歩1分"
+    stylist.save()
+    post = services.start_post(stylist, template_key="daily")
+    services.save_asset(post, _upload(), "a.png", "image/png", 100, "photo", "open")
+    prep = services.save_asset(post, _upload(), "b.png", "image/png", 100, "photo", "prep")
+    prep.taken_at = timezone.make_aware(datetime(2026, 10, 18, 8, 45))
+    prep.save()
+    script = mock_script(post, list(post.usable_assets()))
+    assert script["scenes"][0]["caption"] == "なんばの美容師の1日"
+    assert script["scenes"][1]["caption"] == "8:45 開店前の準備"
+
+
+def test_samples_skip_when_assets_missing(stylist, tmp_path):
+    from apps.reels.samples import SAMPLES, available, create_sample_posts
+
+    assert {s["template"] for s in SAMPLES} == {"color_catalog", "self_intro", "stylist_story", "daily"}
+    assert not available(SAMPLES[0], tmp_path, tmp_path)
+    assert create_sample_posts(stylist, tmp_path, tmp_path) == []
+
+
+def test_sample_catalog_post_from_photos(stylist, tmp_path):
+    from apps.reels.samples import SAMPLES, create_sample_post
+
+    catalog = next(s for s in SAMPLES if s["key"] == "catalog")
+    for name in catalog["assets"]:
+        (tmp_path / f"{name}.jpg").write_bytes(_png())
+    stylist.salon_name, stylist.salon_access = "SOYON なんば店", "なんば駅から徒歩1分"
+    stylist.save()
+    post = create_sample_post(stylist, catalog, tmp_path, tmp_path)
+    assert post.status == "REVIEW" and post.template_key == "color_catalog" and post.face_allowed is False
+    assert post.usable_assets().count() == post.assets.count() - 2  # 顔ありの2枚は使えない
+    assert post.script["cta"]["title"] == "SOYON なんば店"
+    assert post.yt_title == "ブリーチで出せる色、6パターン【なんばの美容室】"
+    assert post.pii_check["passed"] is True

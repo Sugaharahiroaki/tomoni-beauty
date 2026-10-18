@@ -95,6 +95,21 @@ def reservation_email_key_regenerate(request):
 
 
 @stylist_required
+def schedule(request):
+    """予約のタイムライン（週の帯＋1日の時間軸）"""
+    from datetime import timedelta
+
+    from .schedule import build_day, build_week, parse_day
+
+    from apps.broadcasts.auto_slots import sync_auto_slots
+
+    sync_auto_slots(request.stylist)
+    day = parse_day(request.GET.get("date"))
+    week = build_week(request.stylist, day)
+    return render(request, "visits/schedule.html", {"day": build_day(request.stylist, day), "week": week, "prev_week": week[0]["date"] - timedelta(days=7), "next_week": week[0]["date"] + timedelta(days=7), "stylist": request.stylist})
+
+
+@stylist_required
 def reservation_list(request):
     today = today_local()
     qs = Reservation.objects.filter(stylist=request.stylist).select_related("customer", "attributed_message")
@@ -105,7 +120,12 @@ def reservation_list(request):
 
 @stylist_required
 def reservation_create(request):
+    from .schedule import parse_at
+
     initial = {}
+    at = parse_at(request.GET.get("at"))
+    if at:
+        initial["reserved_for"] = at
     customer_id = request.GET.get("customer")
     if customer_id:
         customer = Customer.objects.filter(stylist=request.stylist, pk=customer_id).first()

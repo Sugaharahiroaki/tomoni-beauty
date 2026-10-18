@@ -1,0 +1,38 @@
+{% load tomoni %}
+{% if rec and rec_card %}
+<div class="card accent">
+  <div class="muted tiny">AIのおすすめ</div>
+  <div class="row"><span class="type-icon">{{ rec_card.icon }}</span><div class="grow"><strong style="font-size:1.15rem">{{ rec.type_label }}</strong> <span class="muted tiny">{{ rec_card.tagline }}</span></div></div>
+  <p class="tiny" style="margin:6px 0">{{ rec.reason }}</p>
+  <p class="tiny muted" style="margin:0 0 8px">出来上がる形：{{ rec_card.format_label }}{% if rec.alternatives %} ・ 次点：{{ rec.alternative_labels|join:"、" }}{% endif %}</p>
+  <form method="post" action="{% url 'reels:choose_type' post.pk %}">{% csrf_token %}<input type="hidden" name="post_type" value="{{ rec.post_type }}"><input type="hidden" name="mode" value="ai"><button class="btn">✨ おすすめで作る</button></form>
+</div>
+{% endif %}
+{% if want and want != rec.post_type %}
+<div class="card flat tiny"><strong>今週のおすすめで選んだ型：{{ want_label }}</strong>{% if want_missing %}<div class="mt">足りない素材：{% for m in want_missing %}<div>・{{ m }}</div>{% endfor %}</div>{% else %}<form method="post" action="{% url 'reels:choose_type' post.pk %}" class="mt">{% csrf_token %}<input type="hidden" name="post_type" value="{{ want }}"><input type="hidden" name="mode" value="ai"><button class="btn sm secondary">{{ want_label }}で作る</button></form>{% endif %}</div>
+{% endif %}
+
+<div class="section-title mt"><h2>自分で選ぶ</h2></div>
+<div id="upload-status" class="card accent tiny" style="display:none"></div>
+{% for c in cards %}
+<div class="card type-card {% if not c.available %}unavailable{% endif %} {% if c.recommended %}recommended{% endif %}">
+  <div class="row" style="align-items:flex-start"><span class="type-icon">{{ c.icon }}</span>
+    <div class="grow"><strong>{{ c.label }}</strong> <span class="muted tiny">{{ c.tagline }}</span>
+      {% if c.recommended %}<span class="badge accent">おすすめ</span>{% elif c.alternative %}<span class="badge">次点</span>{% endif %}{% if c.avoided %}<span class="badge">避けたい型</span>{% endif %}
+      <div class="tiny muted" style="margin-top:2px">{{ c.description }}</div>
+      <div class="chips mt"><span class="chip">{{ c.goal }}</span><span class="chip">出来上がり：{{ c.format_label }}{% if c.format != "reel" %}（あとで動画にもできる）{% endif %}</span></div>
+    </div>
+  </div>
+  {% if c.available %}
+  <form method="post" action="{% url 'reels:choose_type' post.pk %}" class="mt">{% csrf_token %}<input type="hidden" name="post_type" value="{{ c.key }}"><input type="hidden" name="mode" value="manual"><button class="btn sm {% if not c.recommended %}secondary{% endif %}">この型で作る</button></form>
+  {% else %}
+  <div class="tiny mt" style="color:var(--danger)">足りない素材：{% for m in c.missing %}<div>・{{ m }}</div>{% endfor %}</div>
+  {% if library %}<p class="tiny muted" style="margin:4px 0 0">前に撮った施術中・本人の素材があります → <a href="?step=assets{% if want %}&want={{ want }}{% endif %}">素材の画面で足す</a></p>{% endif %}
+  <div class="btn-row mt">
+    {% for r in c.missing_roles %}{% with g=role_guides|get_item:r %}<button type="button" class="btn sm ghost" style="width:auto" data-camera-open data-slot="" data-role="{{ r }}" data-mode="{{ g.mode }}" data-frame="{{ g.frame }}" data-what="{{ g.what }}" data-how="{{ g.how }}">📷 撮って足す</button>{% endwith %}{% endfor %}
+    <label class="btn sm ghost" style="width:auto">アルバムから足す<input type="file" accept="image/*,video/*" multiple hidden data-upload-slot="" data-upload-role="{{ c.missing_roles.0 }}"></label>
+  </div>
+  {% endif %}
+</div>
+{% endfor %}
+<a class="btn ghost" href="?step=assets{% if want %}&want={{ want }}{% endif %}">‹ 素材に戻る</a>

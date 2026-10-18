@@ -8,8 +8,10 @@
   <div style="font-size:1.4rem;font-weight:700">週 {{ summary.open_hours }} 時間 空き</div>
   {% if summary.needs_settings %}
     <p class="tiny" style="margin:4px 0 0">平均客単価と歩合率を<a href="{% url 'accounts:stylist_settings' %}">基本情報</a>に入れると「埋まれば月＋○万円」が表示されます。</p>
+  {% elif not summary.open_hours %}
+    <p class="tiny" style="margin:4px 0 0">今週の空き枠はありません。空きが出たら下の「空き枠を追加」から登録すると、埋まった場合の取り分（手元に残る割合 {{ stylist.take_rate }}%）を表示します。</p>
   {% else %}
-    <p class="tiny" style="margin:4px 0 0">埋まれば月 <strong>＋{{ summary.potential_income|intcomma }}円</strong> の取り分（客単価 {{ stylist.avg_price|intcomma }}円 × 歩合 {{ stylist.commission_rate }}% ・ 1人 {{ stylist.avg_service_minutes }}分 で概算）</p>
+    <p class="tiny" style="margin:4px 0 0">埋まれば月 <strong>＋{{ summary.potential_income|intcomma }}円</strong> の取り分（客単価 {{ stylist.avg_price|intcomma }}円 × 手元に残る割合 {{ stylist.take_rate }}%{% if stylist.take_rate_note %}［{{ stylist.take_rate_note }}］{% endif %} ・ 1人 {{ stylist.avg_service_minutes }}分 で概算）</p>
   {% endif %}
   <p class="tiny muted" style="margin:4px 0 0">キャンセル待ち {{ summary.waitlist_count }} 人</p>
 </div>
@@ -19,8 +21,9 @@
   <a class="btn ghost" href="{% url 'broadcasts:waitlist' %}">キャンセル待ちに個別案内</a>
 </div>
 
+<div class="card info tiny">空き枠は、基本情報の稼働時間（曜日・開始・終了）から予約を引いて自動で出します（「自動」の印）。受けたくない時間は「取り下げ」にすると出なくなります。稼働時間は<a href="{% url 'accounts:stylist_settings' %}">基本情報</a>で変えられます。</div>
 <div class="card">
-  <h3>空き枠を追加</h3>
+  <h3>自動で出ない枠を手で足す</h3>
   <form method="post">{% csrf_token %}
     {% include "_form.html" %}
     <button class="btn sm secondary">追加</button>
@@ -31,10 +34,10 @@
   <div class="section-title"><h2>登録済みの空き枠</h2></div>
   {% for s in slots %}
   <div class="list-item">
-    <span class="grow"><strong>{{ s.label }}</strong> <span class="badge {% if s.status == 'open' %}ok{% endif %}">{{ s.get_status_display }}</span>{% if s.note %}<div class="meta">{{ s.note }}</div>{% endif %}</span>
+    <span class="grow"><strong>{{ s.label }}</strong> <span class="badge {% if s.status == 'open' %}ok{% endif %}">{{ s.get_status_display }}</span>{% if s.auto %} <span class="badge">自動</span>{% endif %}{% if s.note and not s.auto %}<div class="meta">{{ s.note }}</div>{% endif %}</span>
     <form method="post" action="{% url 'broadcasts:slot_update' s.pk %}">{% csrf_token %}
-      {% if s.status == 'open' %}<button class="btn sm ghost" name="action" value="filled">埋まった</button>{% else %}<button class="btn sm ghost" name="action" value="reopen">空きに戻す</button>{% endif %}
-      <button class="btn sm ghost" name="action" value="delete" style="color:var(--danger)">削除</button>
+      {% if s.status == 'open' %}<button class="btn sm ghost" name="action" value="{% if s.auto %}close{% else %}filled{% endif %}">{% if s.auto %}受けない{% else %}埋まった{% endif %}</button>{% else %}<button class="btn sm ghost" name="action" value="reopen">空きに戻す</button>{% endif %}
+      {% if not s.auto %}<button class="btn sm ghost" name="action" value="delete" style="color:var(--danger)">削除</button>{% endif %}
     </form>
   </div>
   {% empty %}<div class="card flat muted">空き枠はまだ登録されていません</div>{% endfor %}

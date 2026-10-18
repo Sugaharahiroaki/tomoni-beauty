@@ -76,7 +76,7 @@
 {% endif %}
 
 <section class="section">
-  <div class="section-title"><h2>本日の予約</h2><a href="{% url 'visits:reservation_list' %}">予約一覧</a></div>
+  <div class="section-title"><h2>本日の予約</h2><a href="{% url 'visits:schedule' %}">タイムライン</a></div>
   {% for r in todays_reservations %}
   <div class="list-item">
     <span class="grow"><strong>{{ r.reserved_for|time:"H:i" }}</strong> {{ r.customer.name|default:r.customer_name_raw }}<div class="meta">{{ r.menu|default:"—" }} <span class="badge {{ r.status|badge_class }}">{{ r.get_status_display }}</span></div></span>
@@ -88,6 +88,16 @@
   <div class="card flat muted">今日の予約は登録されていません。<a href="{% url 'visits:reservation_create' %}">予約を登録</a></div>
   {% endfor %}
 </section>
+
+{% if sns_plan %}
+<section class="section">
+  <div class="section-title"><h2>今週のSNS投稿（あと {{ sns_plan|length }} 本）</h2><a href="{% url 'reels:home' %}">SNS</a></div>
+  {% for r in sns_plan %}
+  <div class="list-item"><span class="avatar">{{ r.definition.icon }}</span><span class="grow"><strong>{{ r.label }}</strong><div class="meta">{{ r.reason|truncatechars:70 }}</div></span>
+    <form method="post" action="{% url 'reels:start' %}">{% csrf_token %}<input type="hidden" name="post_type" value="{{ r.post_type }}"><input type="hidden" name="reason" value="{{ r.reason }}"><button class="btn sm secondary">つくる</button></form></div>
+  {% endfor %}
+</section>
+{% endif %}
 
 <section class="section">
   <div class="section-title"><h2>今月</h2><a href="{% url 'core:stats' %}">詳しく</a></div>

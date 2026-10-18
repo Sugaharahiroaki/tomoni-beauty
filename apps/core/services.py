@@ -52,8 +52,14 @@ def build_today(stylist, today=None) -> dict:
 
     month_stats = monthly_stats(stylist, months=1)["rows"][0]
 
+    from apps.reels.recommend import week_count, weekly_plan
+
+    sns_plan = weekly_plan(stylist, today)
+
     return {
         "today": today,
+        "sns_plan": sns_plan,
+        "sns_week_count": week_count(stylist, today),
         "processing_memos": processing_memos,
         "failed_memos": failed_memos,
         "unreplied": unreplied,

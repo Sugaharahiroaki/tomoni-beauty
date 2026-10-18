@@ -1,9 +1,38 @@
 {% extends "base.html" %}{% load static tomoni %}
-{% block title %}SNS動画の設定 | {{ APP_NAME }}{% endblock %}
-{% block page_title %}SNS動画の設定{% endblock %}
+{% block title %}SNS投稿の設定 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}SNS投稿の設定{% endblock %}
 {% block back %}<a class="back" href="{% url 'reels:home' %}">‹ SNS</a>{% endblock %}
 {% block content %}
-<div class="card">
+<form method="post">{% csrf_token %}
+  <div class="card">
+    <h3>投稿の軸</h3>
+    <p class="muted tiny">テーマ（得意な悩み）は一貫させ、見せ方（型）を変えてマンネリを防ぎます。</p>
+    {% if form.non_field_errors %}<div class="nonfield">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="field"><label for="{{ form.focus_concerns_text.id_for_label }}">{{ form.focus_concerns_text.label }}</label>{{ form.focus_concerns_text }}<div class="help">{{ form.focus_concerns_text.help_text }}</div>{{ form.focus_concerns_text.errors }}
+      {% if suggestions %}<div class="chips mt">{% for s in suggestions %}<button type="button" class="chip" data-add-concern="{{ s }}" style="border:0;cursor:pointer">＋ {{ s }}</button>{% endfor %}</div><p class="tiny muted">候補はインタビューの回答とカルテの悩みからです。押すと追加されます。</p>{% endif %}
+    </div>
+    <div class="field"><label for="{{ form.purpose.id_for_label }}">{{ form.purpose.label }}</label>{{ form.purpose }}{{ form.purpose.errors }}</div>
+    <div class="field"><label>{{ form.favorite_types.label }}</label><div class="check-list">{{ form.favorite_types }}</div>{{ form.favorite_types.errors }}</div>
+    <div class="field"><label>{{ form.avoid_types.label }}</label><div class="check-list">{{ form.avoid_types }}</div><div class="help">{{ form.avoid_types.help_text }}</div>{{ form.avoid_types.errors }}</div>
+    <div class="field"><label for="{{ form.posts_per_week.id_for_label }}">{{ form.posts_per_week.label }}</label>{{ form.posts_per_week }}{{ form.posts_per_week.errors }}</div>
+    <div class="card flat tiny muted">型は5つ：{% for key, t in types.items %}{{ t.icon }} {{ t.label }}（{{ t.goal }}）{% if not forloop.last %}／{% endif %}{% endfor %}</div>
+  </div>
+
+  <div class="card">
+    <h3>動画の設定</h3>
+    {% for field in form.video_fields %}
+      {% if field.field.widget.input_type == "checkbox" %}
+        <div class="check">{{ field }}<label for="{{ field.id_for_label }}">{{ field.label }}</label></div>{{ field.errors }}
+      {% else %}
+        <div class="field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<div class="help">{{ field.help_text|safe }}</div>{% endif %}{{ field.errors }}</div>
+      {% endif %}
+    {% endfor %}
+    {% if options.tts_available %}<button type="button" class="btn sm ghost" id="voice-preview" data-url="{% url 'reels:voice_preview' %}">この声で聞いてみる</button><audio id="voice-audio" controls style="display:none;width:100%" class="mt"></audio>{% else %}<p class="muted tiny">声の試聴とAIナレーションには GEMINI_API_KEY の設定が必要です（無い場合はテロップ＋BGMの動画になります）。</p>{% endif %}
+  </div>
+  <button class="btn">保存</button>
+</form>
+
+<div class="card mt">
   <h3>投稿先をつなぐ</h3>
   <div class="toggle-row"><div><strong>Instagram</strong><div class="tiny muted">{% if profile.instagram_connected %}@{{ profile.instagram_username }} ・ つながり {{ profile.instagram_token_expires_at|jadate }} まで（自動延長）{% else %}未接続（プロアカウントが必要）{% endif %}</div></div>
     {% if profile.instagram_connected %}<form method="post" action="{% url 'reels:disconnect' 'instagram' %}">{% csrf_token %}<button class="btn sm ghost">解除</button></form>{% elif connect_available.instagram %}<a class="btn sm secondary" href="{% url 'reels:connect_start' 'instagram' %}">つなぐ</a>{% else %}<span class="badge">運営の設定待ち</span>{% endif %}</div>
@@ -11,15 +40,10 @@
     {% if profile.youtube_connected %}<form method="post" action="{% url 'reels:disconnect' 'youtube' %}">{% csrf_token %}<button class="btn sm ghost">解除</button></form>{% elif connect_available.youtube %}<a class="btn sm secondary" href="{% url 'reels:connect_start' 'youtube' %}">つなぐ</a>{% else %}<span class="badge">運営の設定待ち</span>{% endif %}</div>
   <div class="toggle-row"><div><strong>Threads</strong><div class="tiny muted">{% if profile.threads_connected %}@{{ profile.threads_username }}{% else %}未接続{% endif %}</div></div>
     {% if profile.threads_connected %}<form method="post" action="{% url 'reels:disconnect' 'threads' %}">{% csrf_token %}<button class="btn sm ghost">解除</button></form>{% elif connect_available.threads %}<a class="btn sm secondary" href="{% url 'reels:connect_start' 'threads' %}">つなぐ</a>{% else %}<span class="badge">運営の設定待ち</span>{% endif %}</div>
-  <p class="muted tiny mt">つないでいない投稿先は「お試し投稿」（記録のみ）になります。運営側の Meta / Google のアプリ設定は docs/REELS.md を参照。戻り先URL: <code>{{ callback_base }}&lt;instagram|youtube|threads&gt;/callback/</code></p>
+  <p class="muted tiny mt">つないでいない投稿先は「お試し投稿」（記録のみ）になります。つないでいなくても、動画を保存してキャプションをコピーすれば自分で投稿できます。戻り先URL: <code>{{ callback_base }}&lt;instagram|youtube|threads&gt;/callback/</code></p>
 </div>
-<form method="post" class="card">{% csrf_token %}
-  {% include "_form.html" %}
-  {% if options.tts_available %}<button type="button" class="btn sm ghost" id="voice-preview" data-url="{% url 'reels:voice_preview' %}">この声で聞いてみる</button><audio id="voice-audio" controls style="display:none;width:100%" class="mt"></audio>{% else %}<p class="muted tiny">声の試聴とAIナレーションには GEMINI_API_KEY の設定が必要です（無い場合はテロップ＋BGMの動画になります）。</p>{% endif %}
-  <button class="btn mt">保存</button>
-</form>
 <div class="card flat tiny muted">
-  状態: AI台本 {% if options.ai_available %}利用可{% else %}お試し（見本の台本）{% endif %} ・ ナレーション {% if options.tts_available %}利用可{% else %}未設定{% endif %} ・ 動画作成（FFmpeg） {% if options.ffmpeg_available %}利用可{% else %}未インストール{% endif %}
+  状態: AI {% if options.ai_available %}利用可{% else %}お試し（見本の文章）{% endif %} ・ ナレーション {% if options.tts_available %}利用可{% else %}未設定{% endif %} ・ 動画作成（FFmpeg） {% if options.ffmpeg_available %}利用可{% else %}未インストール{% endif %}
 </div>
 {% endblock %}
-{% block scripts %}<script src="{% static 'js/reels.js' %}"></script>{% endblock %}
+{% block scripts %}<script src="{% static 'js/reels.js' %}?v={{ STATIC_VERSION }}"></script>{% endblock %}

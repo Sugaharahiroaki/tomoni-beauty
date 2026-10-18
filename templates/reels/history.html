@@ -3,14 +3,38 @@
 {% block page_title %}投稿の記録{% endblock %}
 {% block back %}<a class="back" href="{% url 'reels:home' %}">‹ SNS</a>{% endblock %}
 {% block content %}
-<p class="muted tiny">投稿した動画と、見られた回数・いいね・保存の数です（投稿の数時間後から6時間ごとに取り込み、30日分）。どの型がよく見られているかが分かります。</p>
-{% if best %}<div class="card accent"><div class="muted tiny">いちばん見られた投稿</div><a href="{% url 'reels:workspace' best.pk %}"><strong>{{ best.theme_title }}</strong></a><div>再生 <strong style="font-size:1.4rem">{{ best_views }}</strong> 回</div></div>{% endif %}
-{% if by_template %}<div class="card"><strong class="tiny">型ごとの平均の再生回数</strong><table class="simple mt"><tbody>{% for t in by_template %}<tr><td style="text-align:left">{{ t.label }}（{{ t.count }}本）</td><td>{{ t.avg }}回</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+<p class="muted tiny">型の内訳と、投稿ごとの成果です。成果（保存・プロフィールアクセス・予約リンククリック・DM・インスタ経由の新規）は Instagram のインサイトを見て手で入れます。入れた分だけ、おすすめの型に反映されます。</p>
+
+{% if overview.total %}
+<div class="card">
+  <div class="row between"><strong class="tiny">直近 {{ overview.total }} 件の型の内訳</strong>{% if overview.streak >= 2 %}<span class="badge warn">{{ overview.streak_label }}が {{ overview.streak }} 回連続</span>{% endif %}</div>
+  <div class="type-bar mt">{% for r in overview.rows %}{% if r.count %}<span class="tb-{{ r.key }}" style="width:{{ r.share }}%" title="{{ r.label }}"></span>{% endif %}{% endfor %}</div>
+  <table class="simple mt"><tbody>{% for r in overview.rows %}<tr><td style="text-align:left">{{ r.icon }} {{ r.label }}</td><td>{{ r.count }}件（{{ r.share }}%）</td></tr>{% endfor %}</tbody></table>
+</div>
+{% endif %}
+{% if by_type %}
+<div class="card"><strong class="tiny">型ごとの平均の成果（予約クリック×3＋DM×3＋新規×5＋プロフィール×1＋保存×0.5）</strong><table class="simple mt"><tbody>{% for t in by_type %}<tr><td style="text-align:left">{{ t.icon }} {{ t.label }}（{{ t.count }}件）</td><td>{{ t.avg }}</td></tr>{% endfor %}</tbody></table></div>
+{% endif %}
+
 {% for r in rows %}
-<a class="list-item" href="{% url 'reels:workspace' r.post.pk %}">
-  {% if r.post.thumbnail %}<img src="{{ r.post.thumbnail.url }}" alt="" style="width:48px;height:85px;object-fit:cover;border-radius:8px">{% endif %}
-  <span class="grow"><strong>{{ r.post.theme_title }}</strong><div class="meta">{{ r.post.published_at|jadate }} ・ {{ r.post.template_label }}</div>
-    {% for m in r.metrics %}<div class="tiny"><span class="badge">{{ m.platform_label }}</span> 再生 {{ m.views|default:"—" }} ・ いいね {{ m.likes|default:"—" }} ・ 保存 {{ m.saves|default:"—" }}</div>{% empty %}<div class="tiny muted">数値はまだありません</div>{% endfor %}</span>
-</a>
-{% empty %}<div class="empty"><div class="big">📊</div><p>まだ投稿がありません</p><a class="btn" href="{% url 'reels:start' %}">動画をつくる</a></div>{% endfor %}
+<div class="card">
+  <a class="row" href="{% url 'reels:workspace' r.post.pk %}" style="align-items:flex-start">
+    {% if r.post.thumbnail %}<img src="{{ r.post.thumbnail.url }}" alt="" style="width:48px;height:85px;object-fit:cover;border-radius:8px">{% else %}<span class="avatar">{% if r.post.output_format == 'reel' %}🎬{% elif r.post.output_format == 'feed' %}🖼{% else %}💬{% endif %}</span>{% endif %}
+    <span class="grow"><strong>{{ r.post.theme_title|default:r.post.type_label }}</strong> <span class="badge {% if r.post.status == 'PUBLISHED' %}ok{% else %}accent{% endif %}">{{ r.post.get_status_display }}</span>
+      <div class="meta">{{ r.post.type_label }} ・ {{ r.post.format_label }}{% if r.post.theme %} ・ {{ r.post.theme }}{% endif %} ・ {% if r.post.published_at %}{{ r.post.published_at|jadate }}{% else %}{{ r.post.created_at|jadate }}{% endif %}</div>
+      {% for m in r.metrics %}<div class="tiny"><span class="badge">{{ m.platform_label }}</span> 再生 {{ m.views|default:"—" }} ・ いいね {{ m.likes|default:"—" }} ・ 保存 {{ m.saves|default:"—" }}</div>{% endfor %}
+      {% if r.score is not None %}<div class="tiny">成果 {{ r.score }}{% if r.link_clicks %} ・ 計測リンク {{ r.link_clicks }} 回{% endif %}</div>{% endif %}
+    </span>
+  </a>
+  {% if r.post.status == "PUBLISHED" %}
+  <details class="mt"><summary class="tiny">成果を{% if r.post.metrics_updated_at %}直す{% else %}記録する{% endif %}</summary>
+    <form method="post" action="{% url 'reels:metrics_update' r.post.pk %}" class="mt">{% csrf_token %}<input type="hidden" name="next" value="{% url 'reels:history' %}">
+      <div class="metric-grid">{% for key, label, value in r.metric_fields %}<label class="tiny">{{ label }}<input type="number" name="{{ key }}" min="0" inputmode="numeric" value="{{ value|default_if_none:'' }}"></label>{% endfor %}</div>
+      <input type="text" name="metrics_note" value="{{ r.post.metrics_note }}" maxlength="200" placeholder="メモ" class="mt">
+      <button class="btn sm secondary mt">記録する</button>
+    </form>
+  </details>
+  {% endif %}
+</div>
+{% empty %}<div class="empty"><div class="big">📊</div><p>まだ投稿がありません</p><form method="post" action="{% url 'reels:start' %}">{% csrf_token %}<button class="btn">投稿をつくる</button></form></div>{% endfor %}
 {% endblock %}

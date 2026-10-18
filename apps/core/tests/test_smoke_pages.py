@@ -64,8 +64,6 @@ def test_pages_render(client_logged, customer, world):
         reverse("karte:memo_status", kwargs={"pk": world["memo"].pk}),
         reverse("drafts:list"),
         reverse("drafts:detail", kwargs={"pk": world["draft"].pk}),
-        reverse("drafts:sns_list"),
-        reverse("drafts:sns_new") + f"?karte={world['karte'].pk}",
         reverse("drafts:sns_detail", kwargs={"pk": world["post"].pk}),
         reverse("drafts:sns_status", kwargs={"pk": world["post"].pk}),
         reverse("lineapp:settings"),
@@ -88,3 +86,10 @@ def test_memo_detail_redirects_to_karte_when_done(client_logged, world):
     resp = client_logged.get(reverse("karte:memo_detail", kwargs={"pk": world["memo"].pk}))
     assert resp.status_code == 302
     assert resp.url == reverse("karte:detail", kwargs={"pk": world["karte"].pk})
+
+
+def test_old_sns_pages_redirect_to_new_flow(client_logged, world):
+    assert client_logged.get(reverse("drafts:sns_list")).status_code == 302
+    resp = client_logged.get(reverse("drafts:sns_new") + f"?karte={world['karte'].pk}")
+    assert resp.status_code == 302 and resp.url == reverse("reels:home")
+

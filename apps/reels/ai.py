@@ -45,11 +45,12 @@ SCRIPT_SCHEMA = {
             "items": {
                 "type": "object",
                 "additionalProperties": False,
-                "required": ["role", "caption", "narration", "shots"],
+                "required": ["role", "caption", "narration", "caption_pos", "shots"],
                 "properties": {
                     "role": {"type": "string"},
                     "caption": {"type": "string"},
                     "narration": {"type": "string"},
+                    "caption_pos": {"type": "string", "enum": ["auto", "top", "middle", "bottom"]},
                     "shots": {
                         "type": "array",
                         "items": {
@@ -87,8 +88,27 @@ SCRIPT_SCHEMA = {
 }
 
 
-def system_prompt() -> str:
-    return "\n\n---\n\n".join((PROMPTS / name).read_text(encoding="utf-8") for name in ["script_rules.md", "reel_structure.md", "reel_templates.md"])
+def system_prompt(post: ReelPost | None = None) -> str:
+    names = ["script_rules.md", "reel_structure.md", "reel_templates.md"]
+    if post is not None and post.post_type and (PROMPTS / "types" / f"{post.post_type}.md").exists():
+        names.append(f"types/{post.post_type}.md")
+    return "\n\n---\n\n".join((PROMPTS / name).read_text(encoding="utf-8") for name in names)
+
+
+def wrap_hook(text: str, width: int = 9, lines: int = 2) -> str:
+    """フックの文をテロップ用に 1行9文字×2行 に収める"""
+    text = (text or "").replace("\n", "").strip()
+    chunks = []
+    while text and len(chunks) < lines:
+        cut = width
+        for i, ch in enumerate(text[:width]):
+            if ch in "、。！？!?" and i >= 3:
+                cut = i + 1
+        chunks.append(text[:cut].rstrip("、"))
+        text = text[cut:]
+    if text:
+        chunks[-1] = chunks[-1][: width - 1] + "…"
+    return "\n".join(chunks)
 
 
 # ------------------------------------------------------------------ 入力の組み立て
@@ -150,11 +170,13 @@ def build_context(post: ReelPost) -> dict:
             "名前": stylist.display_name,
             "動画に出す名前": profile.display_name() if profile else stylist.salon_name or stylist.display_name,
             "サロン": stylist.salon_name,
+            "サロンの場所": stylist.salon_access,
             "いつもの呼びかけ": getattr(profile, "default_cta", "") or "ご相談はDMかプロフィールから",
             "文体設定": style_for(stylist),
         },
         "話し手": {"性別": getattr(profile, "speaker_gender", "女性"), "年代": getattr(profile, "speaker_age", "")},
         "型": {"キー": post.template_key, "名前": template["label"], "ゴール": template["goal"], "長さの目安（秒）": list(template["seconds"]), "CTA": template["cta"]},
+        "企画": plan_context(post),
         "今日の施術": post.menu_items,
         "施術内容（カルテから・個人情報なし）": {"要約": safe.get("treatment_summary", ""), "仕上がり": safe.get("design_details", "")} if safe else None,
         "お客様の悩みと結果（一般化済み・掲載許可あり）": story_for(post),
@@ -166,18 +188,39 @@ def build_context(post: ReelPost) -> dict:
     }
 
 
+def plan_context(post: ReelPost) -> dict | None:
+    """投稿の企画（型・テーマ・目的・選んだフック・料金）。型を決めていない旧データでは None"""
+    if not post.post_type:
+        return None
+    from .context import lasting_for, price_lines_for
+    from .post_types import PURPOSE_LABELS, TYPE_LABELS
+
+    profile = getattr(post.stylist, "reel_profile", None)
+    return {
+        "型": TYPE_LABELS.get(post.post_type, post.post_type),
+        "テーマ（得意な悩み・必ずこれに寄せる）": post.theme or "（未設定）",
+        "目的": PURPOSE_LABELS.get(getattr(profile, "purpose", "general"), ""),
+        "選んだフック（最初のシーンのテロップとセリフはこれを使う）": post.selected_hook or None,
+        "料金・所要時間（料金に触れるときはこの表の金額だけ）": price_lines_for(post) or "登録なし（料金は書かない）",
+        "持ちの目安": lasting_for(post) or "不明（書かない）",
+        "キャプションに入れる6要素": ["誰向けか", "何が解決するか", "所要時間", "料金の目安（表にあるときだけ）", "持ちの期間（分かるときだけ）", "予約方法"],
+    }
+
+
 def build_messages(post: ReelPost, assets, feedback=None) -> list[dict]:
     today = timezone.localdate()
     content = [{"type": "text", "text": "## 今回の情報\n" + json.dumps(build_context(post), ensure_ascii=False, indent=1)}, {"type": "text", "text": "## 素材（写真・動画）"}]
     for a in assets:
         taken = a.taken_at or a.created_at
-        meta = {"asset_id": str(a.id), "種類": a.kind, "撮影リストの項目": a.slot or "未指定", "face_visible": a.face_visible, "taken_today": bool(taken and timezone.localtime(taken).date() == today), "長さ（秒）": a.duration_sec}
+        meta = {"asset_id": str(a.id), "種類": a.kind, "撮影リストの項目": a.slot or "未指定", "役割": a.role_label, "ネットの素材（雰囲気の補助にだけ使う）": a.is_stock, "face_visible": a.face_visible, "taken_today": bool(taken and timezone.localtime(taken).date() == today), "撮影時刻": timezone.localtime(a.taken_at).strftime("%H:%M") if a.taken_at else None, "長さ（秒）": a.duration_sec}
         content.append({"type": "text", "text": json.dumps(meta, ensure_ascii=False)})
         try:
             content.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": asset_image_b64(a)}})
         except Exception:  # noqa: BLE001
             log.warning("素材を画像にできませんでした: %s", a.id)
     ask = "上の素材で、型に沿った台本をJSONで作ってください。"
+    if (post.selected_hook or {}).get("text"):
+        ask += f"\n最初のシーンのテロップとセリフは、選んだフック「{post.selected_hook['text']}」を使ってください（テロップは1行9文字×2行までに整える）。"
     if feedback:
         ask += "\n\n前回の台本には次の問題がありました。直してください：\n- " + "\n- ".join(feedback)
     content.append({"type": "text", "text": ask})
@@ -219,7 +262,7 @@ def check_script(script: dict, assets, post: ReelPost) -> list[str]:
         for shot in scene.get("shots", []):
             if shot.get("asset_id") not in ids:
                 problems.append(f"{i}番目のシーンに使えない素材ID（{shot.get('asset_id')}）があります")
-            if shot.get("sec") and shot["sec"] > MAX_SHOT_SEC + (0.5 if post.template_key == "stylist_story" else 0):
+            if shot.get("sec") and shot["sec"] > MAX_SHOT_SEC + (0.5 if post.template_key in ("stylist_story", "self_intro") else 0):
                 problems.append(f"{i}番目のシーンのショットが長すぎます（{shot['sec']}秒）")
         text = scene.get("narration", "") + scene.get("caption", "")
         if any(w in text for w in ["今日", "今朝"]) and not all(s.get("asset_id") in today_ids for s in scene.get("shots", [])):
@@ -239,6 +282,8 @@ def check_script(script: dict, assets, post: ReelPost) -> list[str]:
 
 def clamp_script(script: dict) -> dict:
     for scene in script.get("scenes", []):
+        if scene.get("caption_pos") not in ("auto", "top", "middle", "bottom"):
+            scene["caption_pos"] = "auto"
         for shot in scene.get("shots", []):
             shot["tight"] = min(max(float(shot.get("tight") or 1.0), 1.0), 2.2)
             shot["focus_x"] = min(max(float(shot.get("focus_x") if shot.get("focus_x") is not None else 0.5), 0.0), 1.0)
@@ -269,7 +314,7 @@ def ai_script(post: ReelPost, assets) -> tuple[dict, list[str]]:
     notes = []
     for attempt in range(3):
         try:
-            script = get_ai().generate_json_messages("reel_script", system_prompt(), build_messages(post, assets, feedback), SCRIPT_SCHEMA, max_tokens=16000)
+            script = get_ai().generate_json_messages("reel_script", system_prompt(post), build_messages(post, assets, feedback), SCRIPT_SCHEMA, max_tokens=16000)
         except AIError as exc:
             raise RuntimeError(str(exc)) from exc
         if script is None:
@@ -291,32 +336,71 @@ def log_usage(post: ReelPost) -> None:
     UsageLog.objects.create(stylist=post.stylist, post=post, provider="anthropic", model=settings.CLAUDE_MODEL, operation="reel_script", input_tokens=12000, output_tokens=2500, cost_usd=12000 * price_in / 1e6 + 2500 * price_out / 1e6)
 
 
+def fill_slot_text(text: str, post: ReelPost) -> str:
+    """撮影リストの見本の言葉の {サロン} {名前} {エリア} {得意} を、この美容師の情報で埋める"""
+    stylist = post.stylist
+    profile = getattr(stylist, "reel_profile", None)
+    salon = stylist.salon_name or (profile.display_name() if profile else "") or "サロン"
+    name = (stylist.display_name or "").split()[0] if stylist.display_name else ""
+    access = stylist.salon_access or ""
+    area = access.split("駅")[0].strip() if "駅" in access else salon
+    good = "・".join(post.menu_items) if post.menu_items else "カラー"
+    return (text or "").replace("{サロン}", salon).replace("{名前}", name).replace("{エリア}", area).replace("{得意}", good)
+
+
 def mock_script(post: ReelPost, assets) -> dict:
     """AIを使わない台本：撮影リストの項目と素材を対応づけ、型の見本の言葉を使う"""
+    from .post_types import ROLE_SLOTS
+
     slots = shot_list(post.template_key)
     keys = {s["key"] for s in slots}
     by_slot = {}
     for a in assets:
-        by_slot.setdefault(a.slot, a)
+        by_slot.setdefault(a.slot, []).append(a)
     rest = [a for a in assets if a.slot not in keys]
+    # 項目に素材が無いとき、同じ役割の素材を使い回すための対応表（項目 → 役割）
+    roles_for_slot = {}
+    for role, slot_keys in ROLE_SLOTS.get(post.template_key, {}).items():
+        for k in slot_keys:
+            roles_for_slot.setdefault(k, []).append(role)
+    by_role = {}
+    for a in assets:
+        by_role.setdefault(a.role or "other", []).append(a)
     ordered = sorted(slots, key=lambda s: (s["role"] != "フック", s["work"]))
     scenes = []
     for slot in ordered:
-        asset = by_slot.get(slot["key"]) or (rest.pop(0) if rest else None)
-        if asset is None or not slot.get("narration"):
+        group = (by_slot.get(slot["key"]) or ([rest.pop(0)] if rest else []))[:4]
+        if not group and not slot.get("optional"):
+            for role in roles_for_slot.get(slot["key"], []):
+                if by_role.get(role):
+                    group = [by_role[role][-1]]  # 必須の項目は同じ役割の素材を使い回す
+                    break
+        if not group or not slot.get("narration"):
             continue
+        asset = group[0]
         shot = {"asset_id": str(asset.id), "motion": "zoom_in", "tight": 1.0, "focus_x": 0.5, "focus_y": 0.5, "sec": None, "video_start": asset.best_start}
-        shots = [shot]
-        if slot["role"] == "フック":
+        if len(group) > 1:  # 作品写真など、1つの項目に複数枚あるときは順に見せる
+            shots = [dict(shot, asset_id=str(a.id), video_start=a.best_start) for a in group]
+        elif slot["role"] == "フック":
             shots = [dict(shot, sec=1.1), dict(shot, tight=1.6, video_start=None if asset.kind == "photo" else (asset.best_start or 0) + 1.1)]
-        scenes.append({"role": slot["role"], "caption": slot["caption"], "narration": slot["narration"], "shots": shots})
+        else:
+            shots = [shot]
+        caption = fill_slot_text(slot["caption"], post)
+        if post.template_key == "daily" and slot["role"] not in ("フック", "締め") and asset.taken_at:
+            taken = timezone.localtime(asset.taken_at)
+            caption = f"{taken.hour}:{taken.minute:02d} {caption}"
+        scenes.append({"role": slot["role"], "caption": caption, "narration": fill_slot_text(slot["narration"], post), "caption_pos": "auto", "shots": shots})
     if not scenes:
         a = assets[0]
-        scenes.append({"role": "フック", "caption": "今日の仕上がり", "narration": "今日の仕上がり、見てください。", "shots": [{"asset_id": str(a.id), "motion": "zoom_in", "tight": 1.0, "focus_x": 0.5, "focus_y": 0.5, "sec": None, "video_start": a.best_start}]})
+        scenes.append({"role": "フック", "caption": "今日の仕上がり", "narration": "今日の仕上がり、見てください。", "caption_pos": "auto", "shots": [{"asset_id": str(a.id), "motion": "zoom_in", "tight": 1.0, "focus_x": 0.5, "focus_y": 0.5, "sec": None, "video_start": a.best_start}]})
     motions = ["zoom_in", "pan_right", "zoom_out", "pan_left"]
     for i, scene in enumerate(scenes[1:], 1):
         for shot in scene["shots"]:
             shot["motion"] = motions[i % len(motions)]
+    hook_text = (post.selected_hook or {}).get("text", "")
+    if hook_text:
+        scenes[0]["caption"] = wrap_hook(hook_text)
+        scenes[0]["narration"] = hook_text
     hook_asset = scenes[0]["shots"][0]["asset_id"]
     template = TEMPLATES[post.template_key]
     profile = getattr(post.stylist, "reel_profile", None)
@@ -330,12 +414,20 @@ def mock_script(post: ReelPost, assets) -> dict:
         "cta": {"title": brand, "text": cta_text, "narration": "", "background_asset_id": hook_asset},
         "episode_ids": [],
         "bgm_category": template["bgm_categories"][0],
-        "ig_caption": f"{post.theme_title or template['label']}\n\n{menu}の記録です。同じお悩みの方は、DMかプロフィールからご相談ください。",
+        "ig_caption": _mock_caption(post, menu, template),
         "hashtags": [m.replace(" ", "") for m in (post.menu_items or [])][:3] + ["ヘアカラー", "美容師", "フリーランス美容師", "髪質改善", "ヘアスタイル"],
         "yt_title": post.theme_title or template["label"],
         "yt_description": f"{brand}の{template['label']}です。",
         "notes_for_stylist": "",
     }
+
+
+def _mock_caption(post: ReelPost, menu: str, template: dict) -> str:
+    if post.post_type:
+        from .content import mock_caption
+
+        return mock_caption(post, "仕上がりだけでなく、3週間後もきれいでいられるように配合しています。")
+    return f"{post.theme_title or template['label']}\n\n{menu}の記録です。同じお悩みの方は、DMかプロフィールからご相談ください。"
 
 
 def apply_script(post: ReelPost, script: dict, notes: list[str] | None = None) -> None:

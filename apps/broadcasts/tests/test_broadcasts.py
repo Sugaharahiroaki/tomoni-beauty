@@ -57,6 +57,8 @@ def test_potential_monthly_income():
 
 
 def test_weekly_open_hours_and_slot_hours(stylist):
+    stylist.work_days = []  # 手で登録した枠だけを数えるテストなので、自動の空き枠は出さない
+    stylist.save()
     today = date(2026, 10, 21)  # 水曜
     AvailabilitySlot.objects.create(stylist=stylist, date=date(2026, 10, 22), start_time=time(13, 0), end_time=time(16, 30))
     AvailabilitySlot.objects.create(stylist=stylist, date=date(2026, 10, 19), start_time=time(10, 0), end_time=time(12, 0))  # 同じ週の月曜

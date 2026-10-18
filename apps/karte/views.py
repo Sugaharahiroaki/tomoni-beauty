@@ -177,7 +177,8 @@ def karte_edit(request, pk: int):
         form.save()
         messages.success(request, "カルテを保存しました")
         return redirect("karte:detail", pk=pk)
-    return render(request, "karte/karte_form.html", {"form": form, "karte": karte})
+    menu_names = list(dict.fromkeys(request.stylist.menus.filter(is_active=True).values_list("name", flat=True)))[:30]
+    return render(request, "karte/karte_form.html", {"form": form, "karte": karte, "menu_names": menu_names})
 
 
 @stylist_required
@@ -217,7 +218,7 @@ def photo_add(request, pk: int):
     sns_ok = request.POST.get("sns_ok") in ("on", "1", "true")
     face_visible = request.POST.get("face_visible") in ("on", "1", "true")
     for f in files[:10]:
-        form = KartePhotoForm({"sns_ok": sns_ok, "face_visible": face_visible, "caption": request.POST.get("caption", "")}, {"image": f})
+        form = KartePhotoForm({"sns_ok": sns_ok, "face_visible": face_visible, "role": request.POST.get("role") if request.POST.get("role") in ("before", "after") else "after", "caption": request.POST.get("caption", "")}, {"image": f})
         if form.is_valid():
             photo = form.save(commit=False)
             photo.karte = karte
@@ -236,6 +237,8 @@ def photo_update(request, pk: int):
         photo.sns_ok = request.POST["sns_ok"] in ("1", "true", "on")
     if "face_visible" in request.POST:
         photo.face_visible = request.POST["face_visible"] in ("1", "true", "on")
+    if request.POST.get("role") in ("before", "after"):
+        photo.role = request.POST["role"]
     photo.save()
     if _is_fetch(request):
         return JsonResponse({"ok": True, "usable": photo.usable_for_sns(), "reason": photo.blocked_reason()})

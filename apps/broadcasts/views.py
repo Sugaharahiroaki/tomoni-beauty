@@ -119,7 +119,10 @@ def broadcast_cancel(request, pk: int):
 # ---------------------------------------------------------------------------
 @stylist_required
 def availability(request):
+    from .auto_slots import sync_auto_slots
+
     expire_past_slots(request.stylist)
+    sync_auto_slots(request.stylist)
     form = AvailabilitySlotForm(request.POST or None, initial={"date": today_local()})
     if request.method == "POST" and form.is_valid():
         slot = form.save(commit=False)
@@ -141,6 +144,9 @@ def slot_update(request, pk: int):
         slot.delete()
     elif action == "filled":
         slot.status = AvailabilitySlot.Status.FILLED
+        slot.save(update_fields=["status", "updated_at"])
+    elif action == "close":
+        slot.status = AvailabilitySlot.Status.CLOSED  # 自動の枠を「受けない」に（同じ時間に再び出さない）
         slot.save(update_fields=["status", "updated_at"])
     elif action == "reopen":
         slot.status = AvailabilitySlot.Status.OPEN

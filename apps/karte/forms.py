@@ -57,4 +57,4 @@ class KarteForm(forms.ModelForm):
 class KartePhotoForm(forms.ModelForm):
     class Meta:
         model = KartePhoto
-        fields = ["image", "sns_ok", "face_visible", "caption"]
+        fields = ["image", "sns_ok", "face_visible", "role", "caption"]

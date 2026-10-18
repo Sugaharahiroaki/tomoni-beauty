@@ -78,3 +78,36 @@ def housekeeping(daily: bool = False) -> dict:
 
 def bump_render_attempts(job_id: int) -> None:  # pragma: no cover - 互換用
     RenderJob.objects.filter(pk=job_id).update(attempts=F("attempts") + 1)
+
+
+def generate_hooks(post_id: str) -> None:
+    from .hooks import generate_hooks as _hooks
+
+    post = ReelPost.objects.get(pk=post_id)
+    try:
+        post.hooks = _hooks(post)
+        post.status = "DRAFT"
+        post.notes = []
+        post.save(update_fields=["hooks", "status", "notes", "updated_at"])
+    except Exception as exc:  # noqa: BLE001
+        log.exception("hook generation failed %s", post_id)
+        post.status = "DRAFT"
+        post.notes = [f"フックを作れませんでした。もう一度お試しください。（{exc}）"]
+        post.save(update_fields=["status", "notes", "updated_at"])
+
+
+def generate_content(post_id: str) -> None:
+    from .content import generate_content as _content
+
+    post = ReelPost.objects.get(pk=post_id)
+    try:
+        _content(post)
+    except ValueError as exc:
+        post.status = "DRAFT"
+        post.notes = [str(exc)]
+        post.save(update_fields=["status", "notes", "updated_at"])
+    except Exception as exc:  # noqa: BLE001
+        log.exception("content generation failed %s", post_id)
+        post.status = "DRAFT"
+        post.notes = [f"作れませんでした。もう一度お試しください。（{exc}）"]
+        post.save(update_fields=["status", "notes", "updated_at"])

@@ -1,181 +1,26 @@
 {% extends "base.html" %}{% load static tomoni %}
-{% block title %}{{ post.theme_title|default:post.template_label }} | {{ APP_NAME }}{% endblock %}
-{% block page_title %}{{ post.theme_title|default:post.template_label }}{% endblock %}
+{% block title %}{% if post.post_type %}{{ post.theme_title|default:post.type_label }}{% else %}新しい投稿{% endif %} | {{ APP_NAME }}{% endblock %}
+{% block page_title %}{% if post.post_type %}{{ post.type_label }}{% else %}新しい投稿{% endif %}{% endblock %}
 {% block back %}<a class="back" href="{% url 'reels:home' %}">‹ SNS</a>{% endblock %}
 {% block topaction %}<span class="action"><span class="badge {% if post.status == 'FAILED' %}danger{% elif post.status == 'PUBLISHED' %}ok{% elif post.is_busy %}warn{% else %}accent{% endif %}">{{ post.get_status_display }}</span></span>{% endblock %}
 {% block content %}
 <ol class="steps-bar">
-  {% for label in "撮る,台本を確かめる,動画を確かめる,投稿"|split:"," %}
-  <li class="{% if forloop.counter0 < step %}done{% elif forloop.counter0 == step %}current{% endif %}">{% if forloop.counter0 < step %}✓{% else %}{{ forloop.counter }}{% endif %} {{ label }}</li>
+  {% for label in "素材,型,フック,出来上がり"|split:"," %}
+  <li class="{% if forloop.counter0 < stage %}done{% elif forloop.counter0 == stage %}current{% endif %}">{% if forloop.counter0 < stage %}✓{% else %}{{ forloop.counter }}{% endif %} {{ label }}</li>
   {% endfor %}
 </ol>
 {% if post.customer %}<p class="tiny muted">お客様: {{ post.customer.name }}（{% if post.face_allowed %}顔出しOK{% else %}顔出しNG：顔が写った素材は使われません{% endif %}{% if post.uses_story %} ・ 悩みと結果を一般化して使用{% endif %}）</p>{% endif %}
 
-{# ------------------------------------------------------------------ 0. 撮る #}
-{% if step == 0 %}
-  {% if post.status == "SCRIPTING" %}
-  <div class="card" data-poll-url="{% url 'reels:status' post.pk %}"><div class="center" style="padding:16px 0"><div style="font-size:2.2rem">✨</div><strong>AIが写真を見ながら台本を書いています</strong><p class="muted tiny">1分ほどかかります。この画面のまま、お待ちください。</p></div><div class="progress"><div style="width:50%"></div></div></div>
-  {% else %}
-  {% for n in post.notes %}<div class="card warn tiny">{{ n }}</div>{% endfor %}
-  <div class="card info tiny"><strong>スマホを縦にして、下の順番で撮ってください。</strong> 「カメラで撮る」を押すと、構図の線が出るカメラが開きます（動画は3秒で自動で止まります）。全部そろわなくても {{ min_assets }} つ以上あれば台本を作れます。お客様の顔は写さないのが基本です。</div>
-  <div id="upload-status" class="card accent tiny" style="display:none"></div>
-  {% for s in slots %}
-  <div class="card slot-card {% if s.assets %}done{% endif %}" data-slot="{{ s.key }}">
-    <div class="row" style="align-items:flex-start">
-      <span class="avatar {% if s.assets %}ok{% endif %}">{{ forloop.counter }}</span>
-      <div class="grow"><strong>{{ s.what }}</strong><div class="muted tiny">{{ s.how }}</div>
-        <div class="chips mt"><span class="chip">{% if s.recommend == "video" %}🎥 動画（2〜3秒）がおすすめ{% else %}📷 写真がおすすめ{% endif %}</span><span class="chip">{{ s.frame_label }}</span>{% if s.optional %}<span class="chip">なくても大丈夫</span>{% endif %}</div>
-      </div>
-      <div class="guide-mini guide-{{ s.frame }}"><span></span></div>
-    </div>
-    {% if s.example_url %}<img src="{{ s.example_url }}" alt="見本" class="example-thumb">{% endif %}
-    {% if s.assets %}
-    <div class="asset-row">
-      {% for a in s.assets %}
-      <div class="asset-thumb {% if a.id|stringformat:'s' not in usable_ids %}blocked{% endif %}">
-        <img src="{{ a.poster_url }}" alt="">{% if a.kind == "video" %}<span class="tag badge">▶ {{ a.duration_sec|floatformat:0 }}s</span>{% endif %}
-        <div class="asset-actions">
-          <form method="post" action="{% url 'reels:asset_face' post.pk a.pk %}">{% csrf_token %}<button class="linklike tiny" title="顔が写っているかの切り替え">{% if a.face_visible %}顔あり{% else %}顔なし{% endif %}</button></form>
-          <form method="post" action="{% url 'reels:asset_delete' post.pk a.pk %}">{% csrf_token %}<button class="linklike tiny" style="color:var(--danger)">削除</button></form>
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-    {% endif %}
-    <div class="btn-row mt">
-      <button type="button" class="btn sm {% if s.assets %}ghost{% else %}secondary{% endif %}" data-camera-open data-slot="{{ s.key }}" data-mode="{{ s.recommend }}" data-frame="{{ s.frame }}" data-what="{{ s.what }}" data-how="{{ s.how }}">📷 カメラで撮る</button>
-      <label class="btn sm ghost" style="width:auto">アルバムから<input type="file" accept="image/*,video/*" multiple hidden data-upload-slot="{{ s.key }}"></label>
-    </div>
-  </div>
-  {% endfor %}
-  <div class="card">
-    <strong class="tiny">ほかにも使えそうな写真・動画</strong>
-    <p class="muted tiny">店内・道具・薬剤など。すき間をうめるのに使います。</p>
-    {% if extras %}<div class="asset-row">{% for a in extras %}<div class="asset-thumb {% if a.id|stringformat:'s' not in usable_ids %}blocked{% endif %}"><img src="{{ a.poster_url }}" alt=""><div class="asset-actions"><form method="post" action="{% url 'reels:asset_face' post.pk a.pk %}">{% csrf_token %}<button class="linklike tiny">{% if a.face_visible %}顔あり{% else %}顔なし{% endif %}</button></form><form method="post" action="{% url 'reels:asset_delete' post.pk a.pk %}">{% csrf_token %}<button class="linklike tiny" style="color:var(--danger)">削除</button></form></div></div>{% endfor %}</div>{% endif %}
-    <label class="btn sm ghost mt" style="width:auto">写真・動画を足す<input type="file" accept="image/*,video/*" multiple hidden data-upload-slot="extra"></label>
-  </div>
-  {% if blocked_count %}<div class="card warn tiny">顔が写っている素材が {{ blocked_count }} 件あり、このお客様は顔出しNGのため使われません（グレー表示）。顔が写っていなければ「顔あり」を押して切り替えてください。</div>{% endif %}
-  <form method="post" action="{% url 'reels:script_generate' post.pk %}" class="sticky-actions">{% csrf_token %}
-    <button class="btn" {% if usable_ids|length < min_assets %}disabled{% endif %}>✨ 台本をつくる（{{ usable_ids|length }}つの素材）</button>
-    <p class="center muted tiny mt">{% if remaining %}あと {{ remaining }}つ、写真か動画を追加してください{% elif not options.ai_available %}AIの設定前のため、型の見本どおりの台本になります{% else %}AIが写真を見て、型に沿った台本を作ります{% endif %}</p>
-  </form>
-  {% endif %}
+{% if stage == 0 %}{% include "reels/_assets.html" %}
+{% elif stage == 1 %}{% include "reels/_type.html" %}
+{% elif stage == 2 %}{% include "reels/_hooks.html" %}
+{% elif editing or post.status == "REVIEW" %}{% include "reels/_script_edit.html" %}
+{% else %}{% include "reels/_result.html" %}{% endif %}
 
-{# ------------------------------------------------------------------ 1. 台本を確かめる #}
-{% elif step == 1 %}
-  <div class="card info tiny"><strong>AIが台本をつくりました。</strong> 文字やセリフを直したいところは書きかえてください。写真を押すと入れ替えられます。</div>
-  {% for n in post.notes %}<div class="card warn tiny">{{ n }}</div>{% endfor %}
-  {% if post.pii_errors %}<div class="card danger tiny"><strong>お客様の個人情報の可能性があります。</strong>{% for f in post.pii_errors %}<div>「{{ f.text }}」（{{ f.field }}）</div>{% endfor %}直してから動画を作ってください。</div>{% endif %}
-  <form method="post" action="{% url 'reels:script_edit' post.pk %}" id="script-form">{% csrf_token %}
-    {% for scene in post.script.scenes %}
-    <div class="card scene-card">
-      <div class="row"><span class="avatar">{{ forloop.counter }}</span><span class="badge {% if forloop.first %}warn{% endif %}">{% if forloop.first %}つかみ（最初の1〜2秒）{% else %}{{ scene.role }}{% endif %}</span></div>
-      <div class="row mt" style="align-items:flex-start">
-        <div class="shot-column">
-          {% for shot in scene.shots %}{% with a=asset_map|get_item:shot.asset_id %}
-          <button type="button" class="asset-thumb picker-trigger" data-scene="{{ forloop.parentloop.counter0 }}" data-shot="{{ forloop.counter0 }}">{% if a %}<img src="{{ a.poster_url }}" alt="">{% else %}<span class="tiny">?</span>{% endif %}</button>
-          <input type="hidden" name="asset_{{ forloop.parentloop.counter0 }}_{{ forloop.counter0 }}" value="{{ shot.asset_id }}">
-          {% endwith %}{% endfor %}
-        </div>
-        <div class="grow">
-          <label class="tiny">画面の文字（テロップ）</label><textarea name="caption_{{ forloop.counter0 }}" rows="2" maxlength="80">{{ scene.caption }}</textarea>
-          <label class="tiny mt">セリフ（読み上げ）<span class="muted">・空なら BGM だけ</span></label><textarea name="narration_{{ forloop.counter0 }}" rows="2" maxlength="80">{{ scene.narration }}</textarea>
-        </div>
-      </div>
-      <div class="picker-row" data-picker-for="{{ forloop.counter0 }}" style="display:none">
-        <p class="tiny muted">入れ替える写真・動画を選んでください</p>
-        <div class="asset-row">{% for a in assets %}{% if a.id|stringformat:'s' in usable_ids %}<button type="button" class="asset-thumb picker-option" data-asset="{{ a.id }}" data-src="{{ a.poster_url }}"><img src="{{ a.poster_url }}" alt=""></button>{% endif %}{% endfor %}</div>
-      </div>
-      {% if post.narration_mode == "own" and scene.narration %}
-      <div class="take-row tiny" data-take-index="{{ forloop.counter0 }}" data-take-url="{% url 'reels:take_upload' post.pk %}">
-        <button type="button" class="btn sm ghost take-record">🎙 自分の声で録音</button>
-        {% with t=takes|get_item:forloop.counter0 %}{% if t %}<audio controls src="{{ t }}" class="take-audio"></audio>{% else %}<audio controls class="take-audio" style="display:none"></audio>{% endif %}{% endwith %}
-        <span class="take-status muted"></span>
-      </div>
-      {% endif %}
-    </div>
-    {% endfor %}
-    <div class="card">
-      <strong class="tiny">最後の場面（見てくれた人へのお願い）</strong>
-      <input type="text" name="cta_text" maxlength="30" value="{{ post.script.cta.text }}" class="mt">
-      {% if post.script.cta.narration %}<p class="muted tiny">セリフ：{{ post.script.cta.narration }}</p>{% endif %}
-    </div>
-    <div class="card">
-      <strong class="tiny">声と音楽</strong>
-      <ul class="radio-list">
-        <li><input type="radio" name="narration_mode" value="ai" id="nm_ai" {% if post.narration_mode == "ai" %}checked{% endif %}><label for="nm_ai">AIの声で読む{% if not options.tts_available %} <span class="muted tiny">（GEMINI_API_KEY 未設定のため声なしになります）</span>{% endif %}</label></li>
-        <li><input type="radio" name="narration_mode" value="own" id="nm_own" {% if post.narration_mode == "own" %}checked{% endif %}><label for="nm_own">自分の声で録音する <span class="muted tiny">（保存すると各セリフの下に録音ボタンが出ます）</span></label></li>
-        <li><input type="radio" name="narration_mode" value="none" id="nm_none" {% if post.narration_mode == "none" %}checked{% endif %}><label for="nm_none">声なし（テロップとBGMだけ）</label></li>
-      </ul>
-      <p class="muted tiny">AIの声のときは投稿文に「{{ ai_notice }}」が付きます。</p>
-      <label class="tiny mt">BGM</label>
-      <select name="bgm"><option value="">おまかせ（型に合う曲）</option>{% for t in bgm_tracks %}<option value="{{ t.id }}" {% if post.bgm_id == t.id %}selected{% endif %}>{{ t.category_label }}の曲{% if t.mood %}（{{ t.mood }}）{% endif %}</option>{% endfor %}</select>
-      {% if post.bgm %}<audio controls src="{{ post.bgm.file.url }}" class="mt" style="width:100%"></audio>{% endif %}
-    </div>
-    <div class="card">
-      <strong class="tiny">投稿文（動画といっしょに出る文章）</strong>
-      <label class="tiny mt">Instagram の文章</label><textarea name="ig_caption" rows="5">{{ post.ig_caption }}</textarea>
-      <label class="tiny mt">ハッシュタグ（スペース区切り）</label><input type="text" name="hashtags" value="{% for h in post.hashtags %}#{{ h }} {% endfor %}">
-      <label class="tiny mt">YouTube の題名</label><input type="text" name="yt_title" maxlength="95" value="{{ post.yt_title }}">
-      <label class="tiny mt">YouTube の説明</label><textarea name="yt_description" rows="3">{{ post.yt_description }}</textarea>
-    </div>
-    {% if post.episode_ids %}<p class="muted tiny">使ったエピソード: {% for eid in post.episode_ids %}{% with e=episodes|get_item:eid %}{% if e %}「{{ e.title }}」{% endif %}{% endwith %}{% endfor %}</p>{% endif %}
-    <div class="sticky-actions">
-      <button class="btn" name="action" value="render" {% if not options.ffmpeg_available %}disabled{% endif %}>🎬 この内容で動画をつくる</button>
-      <div class="btn-row mt"><button class="btn secondary" name="action" value="save">保存だけして、あとで続ける</button>{% if editing %}<a class="btn ghost" href="{% url 'reels:workspace' post.pk %}">直さずに戻る</a>{% endif %}</div>
-      <p class="center muted tiny mt">動画は2〜3分でできあがります{% if not options.ffmpeg_available %}（このサーバーには FFmpeg がありません）{% endif %}</p>
-    </div>
-  </form>
-  <form method="post" action="{% url 'reels:script_generate' post.pk %}" class="mt">{% csrf_token %}<button class="btn ghost">台本をAIで作り直す</button></form>
-
-{# ------------------------------------------------------------------ 2〜4. 動画・投稿 #}
-{% else %}
-  {% if post.status == "RENDERING" %}
-  <div class="card" data-poll-url="{% url 'reels:status' post.pk %}"><div class="center" style="padding:16px 0"><div style="font-size:2.2rem">🎬</div><strong>動画をつくっています</strong><p class="muted tiny">2〜3分でできあがります。この画面を閉じても大丈夫です（できあがると「SNS」の一覧に出ます）。</p></div><div class="progress"><div style="width:60%"></div></div></div>
-  {% elif post.status == "FAILED" and not post.video %}
-  <div class="card danger"><strong>うまく作れませんでした。</strong><p class="tiny body-text">{{ post.error }}</p></div>
-  <div class="btn-row"><form method="post" action="{% url 'reels:render' post.pk %}">{% csrf_token %}<button class="btn">もう一度つくる</button></form><a class="btn secondary" href="?edit=1">台本を直す</a></div>
-  {% else %}
-  <div class="phone-frame">
-    {% if post.video %}<video src="{{ post.video.url }}" poster="{% if post.thumbnail %}{{ post.thumbnail.url }}{% endif %}" controls playsinline></video>{% else %}<div class="phone-empty">動画がありません</div>{% endif %}
-  </div>
-  {% if post.duration_sec %}<p class="center muted tiny">{{ post.duration_sec|floatformat:1 }}秒</p>{% endif %}
-  <div class="card"><strong class="tiny">いっしょに出る文章（Instagram）</strong><p class="body-text tiny" style="margin:6px 0 0">{{ caption_preview }}</p></div>
-  <div class="chips mb">{% for key, label, on, connected in targets %}{% if on %}<span class="badge {% if connected %}ok{% endif %}">{{ label }}{% if not connected %}（お試し）{% endif %}{% with r=post.publish_result|get_item:key %}{% if r.id %} ✓{% endif %}{% endwith %}</span>{% endif %}{% endfor %}</div>
-  {% if post.status == "FAILED" %}<div class="card danger tiny"><strong>投稿に失敗した投稿先があります。</strong><div class="body-text">{{ post.error }}</div></div>{% endif %}
-
-  {% if post.status == "READY" or post.status == "FAILED" %}
-  <div class="card">
-    <strong>投稿する</strong><p class="muted tiny">よく見られる時間（お昼・夜）に予約するのがおすすめです。つないでいない投稿先は「お試し」で、記録だけ残ります。</p>
-    <form method="post" action="{% url 'reels:schedule' post.pk %}" class="btn-group-vertical">{% csrf_token %}
-      <button class="btn" name="when" value="auto">⏰ おすすめの時間に予約する</button>
-      <button class="btn secondary" name="when" value="now">今すぐ投稿する</button>
-      <div class="row"><input type="datetime-local" name="at" class="grow"><button class="btn sm ghost" name="when" value="custom">この日時で予約</button></div>
-    </form>
-    <a class="btn ghost mt" href="?edit=1">✏️ 文字・セリフ・写真・BGMを直して作り直す</a>
-  </div>
-  {% elif post.status == "SCHEDULED" %}
-  <div class="card ok"><strong>{{ post.scheduled_at|jadatetime }} に投稿します</strong><p class="tiny">時間になると自動で投稿されます（サーバーの定期処理が動いている必要があります）。</p><form method="post" action="{% url 'reels:cancel_schedule' post.pk %}">{% csrf_token %}<button class="btn sm secondary">予約をやめる</button></form></div>
-  {% elif post.status == "PUBLISHED" %}
-  <div class="card ok"><strong>{{ post.published_at|jadatetime }} に投稿しました</strong>
-    {% if metrics %}<div class="stat-grid mt">{% for m in metrics %}<div class="stat"><div class="label">{{ m.platform_label }}</div><div class="tiny">再生 {{ m.views|default:"—" }} ・ いいね {{ m.likes|default:"—" }} ・ 保存 {{ m.saves|default:"—" }} ・ コメント {{ m.comments|default:"—" }}</div><div class="tiny muted">{{ m.fetched_at|jadatetime }}時点</div></div>{% endfor %}</div>{% else %}<p class="tiny muted">見られた回数などは、投稿の数時間後から取り込みます。</p>{% endif %}
-  </div>
-  {% endif %}
-  {% endif %}
-{% endif %}
-
-{% if post.status not in "PUBLISHED SCHEDULED RENDERING SCRIPTING" %}
+{% if post.status not in "PUBLISHED SCHEDULED RENDERING SCRIPTING HOOKING" %}
 <form method="post" action="{% url 'reels:delete' post.pk %}" data-confirm="この投稿を削除します。撮った写真・動画も消えます。よろしいですか？" class="mt">{% csrf_token %}<button class="btn ghost" style="color:var(--danger)">この投稿をやめて削除</button></form>
 {% endif %}
 
-<div id="camera-modal" class="camera-modal" style="display:none" data-upload-url="{% url 'reels:asset_upload' post.pk %}">
-  <div class="camera-top"><button type="button" class="camera-close" aria-label="閉じる">✕</button><div class="grow"><strong id="camera-what"></strong><div class="tiny" id="camera-how"></div></div></div>
-  <div class="camera-stage"><div class="camera-view"><video id="camera-video" playsinline muted autoplay></video><div id="camera-guide" class="guide-overlay"></div><div id="camera-rec" class="camera-rec" style="display:none">録画中・あと<span>3</span>秒</div><div id="camera-error" class="camera-error" style="display:none"></div></div></div>
-  <div class="camera-bottom">
-    <div class="camera-mode"><button type="button" data-mode="photo" class="active">写真</button><button type="button" data-mode="video">動画</button></div>
-    <button type="button" id="camera-shutter" class="camera-shutter" aria-label="撮る"><span></span></button>
-    <div class="camera-right"><span id="camera-count" class="tiny"></span><button type="button" class="btn sm secondary camera-close">終わる</button></div>
-  </div>
-</div>
+{% if stage < 2 %}{% include "reels/_camera_modal.html" %}{% endif %}
 {% endblock %}
-{% block scripts %}<script src="{% static 'js/reels.js' %}"></script>{% endblock %}
+{% block scripts %}<script src="{% static 'js/reels.js' %}?v={{ STATIC_VERSION }}"></script>{% endblock %}
