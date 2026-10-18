@@ -23,6 +23,8 @@ jobs:
 
   deploy:
     needs: test
+    # サーバーの準備ができるまでは動かさない：手動実行か、リポジトリ変数 DEPLOY_ENABLED=true のときだけ
+    if: github.event_name == 'workflow_dispatch' || vars.DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
     environment: production
     steps:
