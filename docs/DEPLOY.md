@@ -91,3 +91,11 @@ rsync -a /srv/tomoni-beauty/media/ /var/backups/tomoni-media/
 - LINE Webhook が届かない: 設定 › LINE連携 の Webhook URL と LINE Developers の設定を照合、`journalctl -u tomoni-web | grep signature`
 - ヘルスチェック: `GET /health/` → `{"status":"ok"}`
 - 開発環境: `python -m venv .venv && pip install -r requirements-dev.txt && cp .env.example .env && python manage.py migrate && python manage.py runserver`（APIキー無しでもダミーAIで動作）
+
+## 自動デプロイを有効にするまで（いまは GitHub をバックアップとして使う段階）
+
+`deploy.yml` の deploy ジョブは、リポジトリ変数 `DEPLOY_ENABLED` が `true` のとき（または Actions 画面からの手動実行）だけ動きます。サーバーの準備ができる前に main へ push しても「missing server host」で失敗しないようにするためです。
+
+1. GitHub の Settings → Secrets and variables → Actions → **Secrets** に `SSH_HOST` `SSH_USER` `SSH_PRIVATE_KEY`（必要なら `SSH_PORT`）を登録
+2. 同じ画面の **Variables** に `DEPLOY_ENABLED` = `true` を登録
+3. 以後、main への push でテスト → デプロイが自動で走る（テストの `test` ジョブはこの変数に関係なく毎回走る）
