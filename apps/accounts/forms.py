@@ -57,8 +57,11 @@ class StylistBasicForm(forms.ModelForm):
             "commission_rate",
             "avg_price",
             "weekly_slot_hours",
+            "avg_service_minutes",
             "default_cycle_weeks",
             "follow_up_lead_days",
+            "max_broadcasts_per_month",
+            "broadcast_min_interval_days",
         ]
         widgets = {
             "commission_rate": forms.NumberInput(attrs={"inputmode": "decimal", "step": "0.5"}),

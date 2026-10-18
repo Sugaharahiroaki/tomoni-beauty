@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}記入用シート | {{ APP_NAME }}{% endblock %}
+{% block page_title %}記入用シート{% endblock %}
+{% block back %}<a class="back" href="{% url 'ledger:filings' %}">‹ 入力に戻る</a>{% endblock %}
+{% block topaction %}<button type="button" class="action linklike" onclick="window.print()">印刷</button>{% endblock %}
+{% block content %}
+<style>@media print { .topbar, .bottom-nav, .messages { display:none } body { padding:0 } }</style>
+<div class="card">
+  <h2>個人事業の開業・廃業等届出書</h2>
+  <table class="simple"><tbody>{% for label, value, hint in sheet.opening %}<tr><td style="text-align:left;width:40%">{{ label }}</td><td style="text-align:left"><strong>{{ value|default:"—" }}</strong>{% if hint %}<div class="tiny muted">{{ hint }}</div>{% endif %}</td></tr>{% endfor %}</tbody></table>
+</div>
+<div class="card">
+  <h2>所得税の青色申告承認申請書</h2>
+  <table class="simple"><tbody>{% for label, value, hint in sheet.blue %}<tr><td style="text-align:left;width:40%">{{ label }}</td><td style="text-align:left"><strong>{{ value|default:"—" }}</strong>{% if hint %}<div class="tiny muted">{{ hint }}</div>{% endif %}</td></tr>{% endfor %}</tbody></table>
+</div>
+<div class="card flat tiny muted">
+  様式: 国税庁「[手続名]個人事業の開業届出・廃業届出等手続」「[手続名]所得税の青色申告承認申請手続」（国税庁サイトで検索）。e-Taxソフト（WEB版・SP版）から電子提出もできます。期限が土日祝の場合は翌営業日（祝日は計算に含めていないため確認してください）。
+</div>
+{% include "ledger/_disclaimer.html" %}
+{% endblock %}

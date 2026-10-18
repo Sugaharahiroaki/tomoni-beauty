@@ -1,0 +1,42 @@
+{% extends "base.html" %}{% load tomoni humanize %}
+{% block title %}空き枠 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}空き枠{% endblock %}
+{% block back %}<a class="back" href="{% url 'broadcasts:list' %}">‹ 配信</a>{% endblock %}
+{% block content %}
+<div class="card accent">
+  <div class="muted tiny">今週（{{ summary.week_start|jadate }}〜{{ summary.week_end|jadate }}）</div>
+  <div style="font-size:1.4rem;font-weight:700">週 {{ summary.open_hours }} 時間 空き</div>
+  {% if summary.needs_settings %}
+    <p class="tiny" style="margin:4px 0 0">平均客単価と歩合率を<a href="{% url 'accounts:stylist_settings' %}">基本情報</a>に入れると「埋まれば月＋○万円」が表示されます。</p>
+  {% else %}
+    <p class="tiny" style="margin:4px 0 0">埋まれば月 <strong>＋{{ summary.potential_income|intcomma }}円</strong> の取り分（客単価 {{ stylist.avg_price|intcomma }}円 × 歩合 {{ stylist.commission_rate }}% ・ 1人 {{ stylist.avg_service_minutes }}分 で概算）</p>
+  {% endif %}
+  <p class="tiny muted" style="margin:4px 0 0">キャンセル待ち {{ summary.waitlist_count }} 人</p>
+</div>
+
+<div class="btn-row mb">
+  <a class="btn secondary" href="{% url 'broadcasts:create' %}?kind=availability">空き枠を案内する（配信）</a>
+  <a class="btn ghost" href="{% url 'broadcasts:waitlist' %}">キャンセル待ちに個別案内</a>
+</div>
+
+<div class="card">
+  <h3>空き枠を追加</h3>
+  <form method="post">{% csrf_token %}
+    {% include "_form.html" %}
+    <button class="btn sm secondary">追加</button>
+  </form>
+</div>
+
+<section class="section">
+  <div class="section-title"><h2>登録済みの空き枠</h2></div>
+  {% for s in slots %}
+  <div class="list-item">
+    <span class="grow"><strong>{{ s.label }}</strong> <span class="badge {% if s.status == 'open' %}ok{% endif %}">{{ s.get_status_display }}</span>{% if s.note %}<div class="meta">{{ s.note }}</div>{% endif %}</span>
+    <form method="post" action="{% url 'broadcasts:slot_update' s.pk %}">{% csrf_token %}
+      {% if s.status == 'open' %}<button class="btn sm ghost" name="action" value="filled">埋まった</button>{% else %}<button class="btn sm ghost" name="action" value="reopen">空きに戻す</button>{% endif %}
+      <button class="btn sm ghost" name="action" value="delete" style="color:var(--danger)">削除</button>
+    </form>
+  </div>
+  {% empty %}<div class="card flat muted">空き枠はまだ登録されていません</div>{% endfor %}
+</section>
+{% endblock %}

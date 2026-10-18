@@ -1,0 +1,23 @@
+{% extends "base.html" %}{% load tomoni %}
+{% block title %}リッチメニュー | {{ APP_NAME }}{% endblock %}
+{% block page_title %}リッチメニュー{% endblock %}
+{% block back %}<a class="back" href="{% url 'core:settings_menu' %}">‹ メニュー</a>{% endblock %}
+{% block content %}
+<p class="muted tiny">LINEのトーク画面下に出るメニューです。「予約する（ホットペッパー・クリック計測付き）」「相談する（返信案を作成）」「キャンセル待ちに登録」の3ボタン。表示は通数を消費しません。</p>
+<div class="card {% if rich_menu.status == 'published' %}ok{% elif rich_menu.status == 'failed' %}danger{% else %}flat{% endif %} tiny">
+  状態: <strong>{{ rich_menu.get_status_display }}</strong>{% if rich_menu.published_at %} ・ {{ rich_menu.published_at|jadatetime }}{% endif %}
+  {% if rich_menu.last_error %}<div style="color:var(--danger)">{{ rich_menu.last_error }}</div>{% endif %}
+  {% if not channel or not channel.is_verified %}<div style="color:var(--danger)">LINEチャネルが未接続のため公開できません。</div>{% endif %}
+  {% if not has_hotpepper %}<div style="color:var(--warn)">ホットペッパー予約URLが未設定のため、「予約する」はLINEで「予約したいです」と送るボタンになります。</div>{% endif %}
+</div>
+<div class="card"><strong class="tiny">プレビュー（自動生成画像）</strong><img src="{% url 'broadcasts:richmenu_preview' %}" alt="リッチメニューのプレビュー" style="width:100%;border-radius:8px;margin-top:6px"></div>
+<form method="post" enctype="multipart/form-data" class="card">{% csrf_token %}
+  {% include "_form.html" %}
+  <div class="btn-group-vertical">
+    <button class="btn secondary" name="action" value="save">保存</button>
+    <button class="btn line" name="action" value="publish" {% if not channel or not channel.is_verified %}disabled{% endif %}>保存して LINE に公開（全員に表示）</button>
+    {% if rich_menu.status == 'published' %}<button class="btn ghost" name="action" value="unpublish">取り下げる</button>{% endif %}
+  </div>
+</form>
+<p class="muted tiny">画像を自分で用意する場合は 2500×843px の PNG/JPEG を指定してください（左から 予約/相談/キャンセル待ち の3分割）。自動返信文は事前承認した定型文として、登録時にだけ送られます。</p>
+{% endblock %}

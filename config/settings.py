@@ -67,6 +67,8 @@ INSTALLED_APPS = [
     "apps.karte",
     "apps.drafts",
     "apps.lineapp",
+    "apps.broadcasts",
+    "apps.ledger",
 ]
 
 MIDDLEWARE = [
@@ -263,5 +265,27 @@ WHITENOISE_USE_FINDERS = DEBUG
 
 # 試験運用中は招待制にしたい場合 false にする（管理画面からユーザー作成）
 SIGNUP_ENABLED = env_bool("SIGNUP_ENABLED", True)
+
+# ---------------------------------------------------------------------------
+# 一斉配信（第2段階）
+# ---------------------------------------------------------------------------
+# 同じお客様に一斉配信を重ねない既定の間隔（日）
+BROADCAST_EXCLUDE_RECENT_DAYS_DEFAULT = env_int("BROADCAST_EXCLUDE_RECENT_DAYS_DEFAULT", 30)
+# Multicast 1回あたりの宛先数（LINE上限は500）
+LINE_MULTICAST_CHUNK = 150
+# リッチメニュー画像に使う日本語フォント（無ければ候補を探索）
+RICH_MENU_FONT_PATH = env("RICH_MENU_FONT_PATH", "")
+
+# ---------------------------------------------------------------------------
+# 税務（第2・3段階）— すべて概算用の既定値。設定画面で美容師ごとに変更可
+# ---------------------------------------------------------------------------
+TAX_DEFAULTS = {
+    "pension_monthly": env_int("TAX_PENSION_MONTHLY", 17920),  # 国民年金 月額（年度で変わる）
+    "nhi_rate_pct": 11.0,  # 国民健康保険の概算料率（市区町村で異なる）
+    "nhi_cap": env_int("TAX_NHI_CAP", 1090000),  # 国民健康保険の年間上限（概算）
+    "resident_tax_rate_pct": 10.0,
+    "resident_tax_flat": 5000,
+    "resident_basic_deduction": 430000,
+}
 # 文字起こし完了後に音声ファイルを削除する（個人情報の保有を最小化）
 DELETE_AUDIO_AFTER_TRANSCRIPTION = env_bool("DELETE_AUDIO_AFTER_TRANSCRIPTION", True)

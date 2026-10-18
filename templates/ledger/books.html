@@ -1,0 +1,43 @@
+{% extends "base.html" %}{% load humanize tomoni %}
+{% block title %}帳簿 {{ year }} | {{ APP_NAME }}{% endblock %}
+{% block page_title %}帳簿（簡易簿記）{{ year }}年{% endblock %}
+{% block back %}<a class="back" href="{% url 'ledger:dashboard' %}?year={{ year }}">‹ お金</a>{% endblock %}
+{% block content %}
+{% include "ledger/_money_nav.html" %}
+<div class="row mb" style="overflow-x:auto">
+  <form method="get" action="" onchange="location.href='/money/books/'+this.year.value+'/?tab={{ tab }}'"><select name="year" style="min-height:36px;padding:4px 8px;width:auto">{% for y in years %}<option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}年</option>{% endfor %}</select></form>
+  <div class="chips" style="flex-wrap:nowrap">
+    <a class="chip {% if tab == 'summary' %}active{% endif %}" href="?tab=summary">月別科目別</a>
+    <a class="chip {% if tab == 'expenses' %}active{% endif %}" href="?tab=expenses">経費帳</a>
+    <a class="chip {% if tab == 'receivable' %}active{% endif %}" href="?tab=receivable">売掛帳</a>
+    <a class="chip {% if tab == 'cash' %}active{% endif %}" href="?tab=cash">現金出納帳</a>
+  </div>
+</div>
+<style>.chip.active{background:var(--accent);color:#fff}</style>
+<p class="muted tiny">青色申告（10万円控除・簡易簿記）に必要な帳簿です。買掛帳・固定資産台帳は該当取引がある場合に手で用意してください。CSV: <a href="{% url 'ledger:books_export' year 'expenses' %}">経費</a> ・ <a href="{% url 'ledger:books_export' year 'income' %}">収入</a></p>
+
+{% if tab == 'summary' %}
+<div class="card" style="overflow-x:auto">
+  <table class="simple" style="min-width:900px"><thead><tr><th>科目</th>{% for m in "123456789101112"|make_list %}{% endfor %}<th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th><th>10</th><th>11</th><th>12</th><th>計</th></tr></thead><tbody>
+  <tr><th>収入（報酬）</th>{% for r in income.by_month %}<td>{{ r.revenue|add:r.other|intcomma }}</td>{% endfor %}<th>{{ income.total_revenue|intcomma }}</th></tr>
+  {% for r in summary.rows %}<tr><td>{{ r.label }}</td>{% for v in r.months %}<td>{{ v|intcomma }}</td>{% endfor %}<th>{{ r.total|intcomma }}</th></tr>{% endfor %}
+  <tr><th>経費計</th>{% for v in summary.month_totals %}<th>{{ v|intcomma }}</th>{% endfor %}<th>{{ summary.total|intcomma }}</th></tr>
+  </tbody></table>
+</div>
+{% elif tab == 'expenses' %}
+{% for g in ledger %}
+<div class="card"><div class="row between"><strong>{{ g.label }}</strong><span>¥{{ g.total|intcomma }}</span></div>
+  <table class="simple mt"><tbody>{% for e in g.rows %}<tr><td>{{ e.date|date:"m/d" }}</td><td style="text-align:left">{{ e.vendor }} {{ e.description }}{% if e.business_ratio != 100 %}（{{ e.business_ratio }}%）{% endif %}</td><td>¥{{ e.business_amount|intcomma }}</td></tr>{% endfor %}</tbody></table>
+</div>
+{% empty %}<div class="card flat muted">経費がありません</div>{% endfor %}
+{% elif tab == 'receivable' %}
+<div class="card"><table class="simple"><thead><tr><th>日付</th><th style="text-align:left">摘要</th><th>発生</th><th>入金・控除</th><th>残高</th></tr></thead><tbody>
+{% for r in receivable.rows %}<tr><td>{{ r.date|date:"m/d" }}</td><td style="text-align:left">{{ r.description }}</td><td>{% if r.debit %}{{ r.debit|intcomma }}{% endif %}</td><td>{% if r.credit %}{{ r.credit|intcomma }}{% endif %}</td><td>{{ r.balance|intcomma }}</td></tr>{% empty %}<tr><td colspan="5" class="muted">確定した報酬明細がありません</td></tr>{% endfor %}
+</tbody></table><p class="tiny muted mt">年末残高 ¥{{ receivable.closing|intcomma }}（未入金の報酬）</p></div>
+{% elif tab == 'cash' %}
+<div class="card"><table class="simple"><thead><tr><th>日付</th><th style="text-align:left">摘要</th><th>収入</th><th>支出</th><th>残高</th></tr></thead><tbody>
+{% for r in cash.rows %}<tr><td>{{ r.date|date:"m/d" }}</td><td style="text-align:left">{{ r.description }}</td><td>{% if r.income %}{{ r.income|intcomma }}{% endif %}</td><td>{% if r.expense %}{{ r.expense|intcomma }}{% endif %}</td><td>{{ r.balance|intcomma }}</td></tr>{% empty %}<tr><td colspan="5" class="muted">現金での取引がありません（期首残高は<a href="{% url 'ledger:opening_balance' year %}">複式簿記 › 期首残高</a>で設定）</td></tr>{% endfor %}
+</tbody></table></div>
+{% endif %}
+{% include "ledger/_disclaimer.html" %}
+{% endblock %}

@@ -30,18 +30,22 @@ def verify_signature(channel_secret: str, body: bytes, signature: str | None) ->
 
 
 class LineClient:
-    def __init__(self, access_token: str, base_url: str | None = None, session: requests.Session | None = None, timeout: float = 10.0):
+    def __init__(self, access_token: str, base_url: str | None = None, session: requests.Session | None = None, timeout: float = 15.0):
         self.access_token = access_token
         self.base_url = (base_url or settings.LINE_API_BASE).rstrip("/")
+        self.data_base_url = settings.LINE_DATA_API_BASE.rstrip("/")
         self.session = session or requests.Session()
         self.timeout = timeout
 
-    def _request(self, method: str, path: str, json: dict | None = None) -> dict:
+    def _request(self, method: str, path: str, json: dict | None = None, data: bytes | None = None, content_type: str | None = None, base_url: str | None = None) -> dict:
         headers = {"Authorization": f"Bearer {self.access_token}"}
         if json is not None:
             headers["Content-Type"] = "application/json"
+        if content_type:
+            headers["Content-Type"] = content_type
+        url = f"{base_url or self.base_url}{path}"
         try:
-            resp = self.session.request(method, f"{self.base_url}{path}", json=json, headers=headers, timeout=self.timeout)
+            resp = self.session.request(method, url, json=json, data=data, headers=headers, timeout=self.timeout)
         except requests.RequestException as exc:
             raise LineApiError(0, f"接続エラー: {exc}") from exc
         if resp.status_code >= 400:
@@ -86,3 +90,28 @@ class LineClient:
 
     def push(self, user_id: str, text: str) -> dict:
         return self._request("POST", "/v2/bot/message/push", {"to": user_id, "messages": self._text_messages(text)})
+
+    def multicast(self, user_ids: list[str], text: str) -> dict:
+        """複数宛先に同じ本文（通数 = 宛先数）。1回500人まで。"""
+        if not user_ids:
+            return {}
+        if len(user_ids) > 500:
+            raise ValueError("multicast は1回500人までです")
+        return self._request("POST", "/v2/bot/message/multicast", {"to": user_ids, "messages": self._text_messages(text)})
+
+    # --- リッチメニュー ---
+    def create_rich_menu(self, payload: dict) -> str:
+        result = self._request("POST", "/v2/bot/richmenu", payload)
+        return result.get("richMenuId", "")
+
+    def upload_rich_menu_image(self, rich_menu_id: str, image_bytes: bytes, content_type: str = "image/png") -> None:
+        self._request("POST", f"/v2/bot/richmenu/{rich_menu_id}/content", data=image_bytes, content_type=content_type, base_url=self.data_base_url)
+
+    def set_default_rich_menu(self, rich_menu_id: str) -> None:
+        self._request("POST", f"/v2/bot/user/all/richmenu/{rich_menu_id}")
+
+    def cancel_default_rich_menu(self) -> None:
+        self._request("DELETE", "/v2/bot/user/all/richmenu")
+
+    def delete_rich_menu(self, rich_menu_id: str) -> None:
+        self._request("DELETE", f"/v2/bot/richmenu/{rich_menu_id}")

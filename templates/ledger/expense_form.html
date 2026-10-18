@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}経費 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}{% if is_new %}経費を登録{% else %}経費を編集{% endif %}{% endblock %}
+{% block back %}<a class="back" href="{% url 'ledger:expenses' %}">‹ 経費</a>{% endblock %}
+{% block content %}
+{% if expense and expense.statement %}<div class="card info tiny">報酬明細の控除項目です。金額・内容は<a href="{% url 'ledger:statement_edit' expense.statement.pk %}">明細側</a>で編集してください。科目と事業割合はここで変更できます。</div>{% endif %}
+<form method="post" class="card">{% csrf_token %}
+  {% include "_form.html" %}
+  <button class="btn">保存</button>
+</form>
+{% if expense and not expense.statement %}<form method="post" action="{% url 'ledger:expense_delete' expense.pk %}" data-confirm="削除しますか？" class="mt">{% csrf_token %}<button class="btn ghost" style="color:var(--danger)">削除</button></form>{% endif %}
+{% include "ledger/_disclaimer.html" %}
+{% endblock %}

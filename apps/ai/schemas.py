@@ -125,6 +125,88 @@ EPISODES_SCHEMA = {
     "additionalProperties": False,
 }
 
+BROADCAST_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "body": {"type": "string", "description": "配信本文。予約リンクは {予約リンク} プレースホルダー"},
+        "free_alternatives": _str_array(),
+    },
+    "required": ["body", "free_alternatives"],
+    "additionalProperties": False,
+}
+
+RECEIPT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "date": {"type": ["string", "null"], "description": "YYYY-MM-DD"},
+        "vendor": {"type": "string"},
+        "total": {"type": ["integer", "null"], "description": "税込合計（円）"},
+        "tax": {"type": ["integer", "null"]},
+        "items": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"name": {"type": "string"}, "amount": {"type": ["integer", "null"]}},
+                "required": ["name", "amount"],
+                "additionalProperties": False,
+            },
+        },
+        "suggested_category": {
+            "type": "string",
+            "enum": ["materials", "booth_rent", "supplies", "travel", "communication", "advertising", "entertainment", "training", "fees", "insurance", "repairs", "utilities", "taxes", "depreciation", "outsourcing", "misc", "unknown"],
+        },
+        "payment_hint": {"type": "string", "enum": ["cash", "card", "transfer", "unknown"]},
+        "confidence": {"type": "string", "enum": ["low", "medium", "high"]},
+        "notes": {"type": "string"},
+    },
+    "required": ["date", "vendor", "total", "tax", "items", "suggested_category", "payment_hint", "confidence", "notes"],
+    "additionalProperties": False,
+}
+
+STATEMENT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "period_year": {"type": ["integer", "null"]},
+        "period_month": {"type": ["integer", "null"]},
+        "salon_name": {"type": "string"},
+        "gross_sales": {"type": ["integer", "null"], "description": "技術売上・総売上（円）"},
+        "commission_rate_pct": {"type": ["number", "null"]},
+        "commission_amount": {"type": ["integer", "null"], "description": "報酬額（歩合適用後・控除前）"},
+        "deductions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"label": {"type": "string"}, "amount": {"type": ["integer", "null"]}},
+                "required": ["label", "amount"],
+                "additionalProperties": False,
+            },
+        },
+        "withholding_tax": {"type": ["integer", "null"], "description": "源泉徴収税額。無ければ 0"},
+        "net_paid": {"type": ["integer", "null"], "description": "差引支給額・振込額"},
+        "paid_on": {"type": ["string", "null"], "description": "YYYY-MM-DD"},
+        "confidence": {"type": "string", "enum": ["low", "medium", "high"]},
+        "notes": {"type": "string"},
+    },
+    "required": ["period_year", "period_month", "salon_name", "gross_sales", "commission_rate_pct", "commission_amount", "deductions", "withholding_tax", "net_paid", "paid_on", "confidence", "notes"],
+    "additionalProperties": False,
+}
+
+RESERVATION_EMAIL_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "kind": {"type": "string", "enum": ["booked", "cancelled", "changed", "unknown"]},
+        "customer_name": {"type": "string"},
+        "customer_kana": {"type": "string"},
+        "reserved_for": {"type": ["string", "null"], "description": "ISO 8601 (YYYY-MM-DDTHH:MM)"},
+        "menu": {"type": "string"},
+        "stylist_name": {"type": "string"},
+        "reservation_id": {"type": "string"},
+        "confidence": {"type": "string", "enum": ["low", "medium", "high"]},
+    },
+    "required": ["kind", "customer_name", "customer_kana", "reserved_for", "menu", "stylist_name", "reservation_id", "confidence"],
+    "additionalProperties": False,
+}
+
 REPLY_SCHEMA = {
     "type": "object",
     "properties": {

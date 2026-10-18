@@ -55,6 +55,10 @@ Repository → Settings → Environments → `production` に Secrets を登録:
 
 `.env.example` を参照。本番で必ず変えるもの: `DJANGO_SECRET_KEY`, `DJANGO_DEBUG=false`, `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `SITE_URL`, `DATABASE_URL`, `Q_SYNC=false`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `INTERNAL_API_TOKEN`。
 
+## 3.1 リッチメニュー画像の日本語フォント
+
+自動生成するリッチメニュー画像には日本語フォントが必要です。`setup_server.sh` は `fonts-noto-cjk` を入れます。別のフォントを使う場合は `.env` に `RICH_MENU_FONT_PATH=/path/to/font.ttc` を指定してください。
+
 ## 4. 日次処理
 
 n8n（`n8n/README.md`）か cron:

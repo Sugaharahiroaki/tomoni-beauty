@@ -1,0 +1,54 @@
+{
+  "name": "TOMONI Beauty - SALON BOARD 予約通知メールの取り込み",
+  "nodes": [
+    {
+      "parameters": {"mailbox": "INBOX", "postProcessAction": "read", "options": {"customEmailConfig": "[\"UNSEEN\"]"}, "format": "simple"},
+      "name": "IMAP: 予約通知メールを受信",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "credentials": {"imap": {"id": "REPLACE_WITH_IMAP_CREDENTIAL_ID", "name": "IMAP (取り込み用メールボックス)"}}
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": false, "leftValue": "", "typeValidation": "loose"},
+          "conditions": [
+            {"leftValue": "={{ $json.subject }}", "rightValue": "予約", "operator": {"type": "string", "operation": "contains"}}
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "件名に「予約」を含む",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.TOMONI_SITE_URL }}/internal/reservations/email/",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "X-Internal-Token", "value": "={{ $env.TOMONI_INTERNAL_TOKEN }}"}, {"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ stylist_key: $env.TOMONI_STYLIST_KEY, subject: $json.subject, body: ($json.textPlain || $json.textHtml || ''), received_at: $json.date, from: $json.from }) }}",
+        "options": {"timeout": 60000}
+      },
+      "name": "TOMONI に送信",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, -80]
+    }
+  ],
+  "connections": {
+    "IMAP: 予約通知メールを受信": {"main": [[{"node": "件名に「予約」を含む", "type": "main", "index": 0}]]},
+    "件名に「予約」を含む": {"main": [[{"node": "TOMONI に送信", "type": "main", "index": 0}], []]}
+  },
+  "settings": {"timezone": "Asia/Tokyo", "executionOrder": "v1"},
+  "staticData": null,
+  "meta": {"templateCredsSetupCompleted": false},
+  "pinData": {},
+  "versionId": "1"
+}

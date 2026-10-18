@@ -1,0 +1,38 @@
+{% extends "base.html" %}{% load humanize %}
+{% block title %}手取り見込み {{ year }} | {{ APP_NAME }}{% endblock %}
+{% block page_title %}手取り見込み {{ year }}年{% endblock %}
+{% block back %}<a class="back" href="{% url 'ledger:dashboard' %}?year={{ year }}">‹ お金</a>{% endblock %}
+{% block content %}
+{% include "ledger/_money_nav.html" %}
+<form onchange="location.href='/money/forecast/'+this.year.value+'/'" class="mb"><select name="year" style="min-height:36px;padding:4px 8px;width:auto">{% for y in years %}<option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}年</option>{% endfor %}</select></form>
+{% with e=fc.estimate p=fc.projection %}
+<div class="card accent">
+  <div class="muted tiny">年間の手取り見込み（税・社会保険料を払った後）</div>
+  <div style="font-size:1.8rem;font-weight:700">¥{{ e.net_income|intcomma }}</div>
+  <div class="tiny">月あたり 約 ¥{{ e.net_income_monthly|intcomma }} ・ 負担率 概算 {{ e.effective_rate_pct }}%</div>
+  <div class="tiny muted mt">実績 {{ p.months_actual|length }}か月 ＋ 見込み {{ p.months_projected|length }}か月（月収 ¥{{ p.monthly_revenue_assumed|intcomma }} ・ 月経費 ¥{{ p.monthly_expenses_assumed|intcomma }} と仮定）</div>
+  {% if not fc.has_data %}<div class="tiny mt" style="color:var(--warn)">まだ確定した報酬明細がありません。下の「見込み月収」を入れると計算できます。</div>{% endif %}
+</div>
+<div class="card"><table class="simple"><tbody>
+<tr><td style="text-align:left">収入（報酬＋その他）</td><td>¥{{ e.revenue|intcomma }}</td></tr>
+<tr><td style="text-align:left">− 経費</td><td>¥{{ e.expenses|intcomma }}</td></tr>
+<tr><th style="text-align:left">所得（控除前）</th><th>¥{{ e.profit|intcomma }}</th></tr>
+<tr><td style="text-align:left">− 青色申告特別控除</td><td>¥{{ e.blue_deduction|intcomma }}</td></tr>
+<tr><th style="text-align:left">事業所得</th><th>¥{{ e.business_income|intcomma }}</th></tr>
+<tr><td style="text-align:left">− 国民健康保険（概算）</td><td>¥{{ e.nhi|intcomma }}</td></tr>
+<tr><td style="text-align:left">− 国民年金</td><td>¥{{ e.pension|intcomma }}</td></tr>
+<tr><td style="text-align:left">− 基礎控除（{{ fc.params.year }}年分）</td><td>¥{{ e.basic_deduction|intcomma }}</td></tr>
+<tr><td style="text-align:left">− その他の所得控除</td><td>¥{{ e.other_deductions|intcomma }}</td></tr>
+<tr><th style="text-align:left">課税所得</th><th>¥{{ e.taxable_income|intcomma }}</th></tr>
+<tr><td style="text-align:left">所得税（復興特別所得税込み）</td><td>¥{{ e.income_tax|intcomma }}</td></tr>
+<tr><td style="text-align:left">　うち源泉徴収済み</td><td>¥{{ e.withheld|intcomma }}</td></tr>
+<tr><td style="text-align:left">　確定申告で{% if e.balance_due >= 0 %}納付{% else %}還付{% endif %}の見込み</td><td>¥{% if e.balance_due < 0 %}{{ e.balance_due|intcomma|slice:"1:" }}{% else %}{{ e.balance_due|intcomma }}{% endif %}</td></tr>
+<tr><td style="text-align:left">住民税（翌年度・概算）</td><td>¥{{ e.resident_tax|intcomma }}</td></tr>
+<tr><th style="text-align:left">手取り</th><th>¥{{ e.net_income|intcomma }}</th></tr>
+</tbody></table></div>
+{% endwith %}
+<details class="card" open><summary>計算の前提を変える</summary>
+  <form method="post" class="mt">{% csrf_token %}{% include "_form.html" %}<button class="btn secondary">保存して再計算</button></form>
+</details>
+{% include "ledger/_disclaimer.html" %}
+{% endblock %}

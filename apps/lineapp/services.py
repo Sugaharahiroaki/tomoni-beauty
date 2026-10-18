@@ -163,8 +163,11 @@ def _handle_event(channel: LineChannel, event: dict) -> bool:
         return True
 
     if etype == "postback":
-        # 第2段階（リッチメニュー）で使用。今は受信ログのみ
-        logger.info("postback from %s: %s", user_id, (event.get("postback") or {}).get("data"))
+        from apps.broadcasts.services import handle_postback
+
+        customer = upsert_customer_from_line(channel, user_id)
+        data = (event.get("postback") or {}).get("data", "")
+        handle_postback(channel, customer, data, event.get("replyToken", ""), _event_time(event))
         return True
 
     return False

@@ -1,0 +1,27 @@
+{% extends "base.html" %}{% load humanize %}
+{% block title %}報酬明細 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}{% if is_new %}報酬明細を手入力{% else %}報酬明細{% endif %}{% endblock %}
+{% block back %}<a class="back" href="{% url 'ledger:statements' %}">‹ 報酬</a>{% endblock %}
+{% block content %}
+{% if statement and statement.is_processing %}
+<div class="card" data-poll-url="{% url 'ledger:statement_status' statement.pk %}"><strong>明細を読み取っています…</strong><p class="muted tiny">数十秒お待ちください。</p><div class="progress"><div style="width:50%"></div></div></div>
+{% else %}
+{% if statement and statement.status == "failed" %}<div class="card danger tiny">読み取れませんでした: {{ statement.error }}。下に手入力してください。</div>{% endif %}
+{% if statement and statement.document %}<a href="{{ statement.document.url }}" target="_blank" rel="noopener" class="tiny">アップロードした明細を開く</a>{% endif %}
+{% if statement and statement.ocr_raw.confidence %}<div class="card flat tiny">読み取りの確からしさ: {{ statement.ocr_raw.confidence }}{% if statement.ocr_raw.notes %} ・ {{ statement.ocr_raw.notes }}{% endif %}</div>{% endif %}
+{% if statement and statement.balance_diff != 0 %}<div class="card warn tiny">報酬 − 控除 − 源泉 と 振込額の差が ¥{{ statement.balance_diff|intcomma }} あります。控除の読み漏れや振込手数料を確認してください。</div>{% endif %}
+<form method="post" class="card">{% csrf_token %}
+  {% include "_form.html" %}
+  <div class="btn-group-vertical">
+    <button class="btn secondary" name="action" value="save">保存</button>
+    {% if statement and statement.status == "confirmed" %}
+      <button class="btn ghost" name="action" value="unconfirm">確定を解除</button>
+    {% else %}
+      <button class="btn" name="action" value="confirm">確定する（帳簿・経費に反映）</button>
+    {% endif %}
+  </div>
+</form>
+{% if statement %}<form method="post" action="{% url 'ledger:statement_delete' statement.pk %}" data-confirm="この明細と控除経費を削除しますか？" class="mt">{% csrf_token %}<button class="btn ghost" style="color:var(--danger)">削除</button></form>{% endif %}
+{% endif %}
+{% include "ledger/_disclaimer.html" %}
+{% endblock %}

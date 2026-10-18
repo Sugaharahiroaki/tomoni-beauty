@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}配信を作る | {{ APP_NAME }}{% endblock %}
+{% block page_title %}{% if is_new %}配信を作る{% else %}配信を編集{% endif %}{% endblock %}
+{% block back %}<a class="back" href="{% url 'broadcasts:list' %}">‹ 配信</a>{% endblock %}
+{% block content %}
+<form method="post" class="card">{% csrf_token %}
+  {% if form.non_field_errors %}<div class="nonfield">{{ form.non_field_errors }}</div>{% endif %}
+  <div class="field"><label>{{ form.kind.label }}</label><ul class="radio-list">{% for r in form.kind %}<li>{{ r.tag }}<label for="{{ r.id_for_label }}">{{ r.choice_label }}</label></li>{% endfor %}</ul></div>
+  <div class="field"><label for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>{{ form.title }}{{ form.title.errors }}</div>
+
+  <details {% if not is_new %}open{% endif %}><summary>対象を絞り込む（空欄なら友だち全員）</summary>
+    <div class="mt">
+      {% if form.tags.field.choices %}<div class="field"><label>{{ form.tags.label }}</label><ul class="checkbox-list">{% for cb in form.tags %}<li><label>{{ cb.tag }} {{ cb.choice_label }}</label></li>{% endfor %}</ul></div>{% endif %}
+      <div class="row"><div class="field grow"><label>{{ form.last_visit_min_days.label }}</label>{{ form.last_visit_min_days }}</div><div class="field grow"><label>{{ form.last_visit_max_days.label }}</label>{{ form.last_visit_max_days }}</div></div>
+      <div class="check">{{ form.include_never_visited }}<label for="{{ form.include_never_visited.id_for_label }}">{{ form.include_never_visited.label }}</label></div>
+      <div class="field"><label>{{ form.preferred_timing.label }}</label>{{ form.preferred_timing }}</div>
+      <div class="field"><label>{{ form.menu_keyword.label }}</label>{{ form.menu_keyword }}</div>
+      <div class="field"><label>{{ form.exclude_recent_days.label }}</label>{{ form.exclude_recent_days }}</div>
+      <div class="check">{{ form.exclude_reserved }}<label for="{{ form.exclude_reserved.id_for_label }}">{{ form.exclude_reserved.label }}</label></div>
+      <div class="check">{{ form.waitlist_only }}<label for="{{ form.waitlist_only.id_for_label }}">{{ form.waitlist_only.label }}</label></div>
+    </div>
+  </details>
+
+  {% if form.slots.field.queryset %}
+  <div class="field mt"><label>{{ form.slots.label }}</label><ul class="checkbox-list">{% for cb in form.slots %}<li><label>{{ cb.tag }} {{ cb.choice_label }}</label></li>{% endfor %}</ul></div>
+  {% endif %}
+
+  <div class="field mt"><label for="{{ form.ai_notes.id_for_label }}">{{ form.ai_notes.label }}</label>{{ form.ai_notes }}</div>
+  <button class="btn secondary" name="action" value="draft_ai">✨ AIで本文の下書きを作る</button>
+
+  <div class="field mt"><label for="{{ form.body.id_for_label }}">{{ form.body.label }}</label>{{ form.body }}{{ form.body.errors }}</div>
+  {% if broadcast and broadcast.ai_alternatives %}
+  <div class="card info tiny"><strong>通数を使わない代替案（AI提案）</strong><ul style="margin:4px 0 0;padding-left:1.1rem">{% for a in broadcast.ai_alternatives %}<li>{{ a }}</li>{% endfor %}</ul></div>
+  {% endif %}
+  <button class="btn" name="action" value="save">保存して対象人数・通数を確認</button>
+</form>
+<p class="muted tiny">この画面では送信されません。次の画面で対象人数・消費通数・残り通数を確認してから送ります。</p>
+{% endblock %}

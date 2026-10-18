@@ -1,0 +1,47 @@
+{% extends "base.html" %}{% load tomoni %}
+{% block title %}予約メール取り込み | {{ APP_NAME }}{% endblock %}
+{% block page_title %}予約通知メールの取り込み{% endblock %}
+{% block back %}<a class="back" href="{% url 'visits:reservation_list' %}">‹ 予約</a>{% endblock %}
+{% block content %}
+<div class="card">
+  <h3>メールを貼り付けて登録</h3>
+  <p class="muted tiny">SALON BOARD から届いた予約・キャンセルの通知メールを、そのまま貼り付けてください。日時・お名前・メニューを読み取り、予約に登録します（お客様は名前で自動照合）。</p>
+  <form method="post">{% csrf_token %}
+    <div class="field"><label for="subject">件名（任意）</label><input type="text" id="subject" name="subject"></div>
+    <div class="field"><label for="body">本文</label><textarea id="body" name="body" rows="6" placeholder="メール本文を貼り付け"></textarea></div>
+    <button class="btn">読み取って登録</button>
+  </form>
+</div>
+
+<details class="card flat">
+  <summary>自動取り込み（n8n）の設定</summary>
+  <p class="tiny muted">店の SALON BOARD「予約お知らせメール」の通知先に取り込み用アドレスを追加（または転送設定）してもらい、n8n の IMAP で受信して下記 API に送ります（<code>n8n/reservation_email_workflow.json</code>）。</p>
+  <div class="kv tiny">
+    <dt>あなたの取り込みキー</dt><dd><code id="import-key">{{ import_key }}</code> <button type="button" class="btn sm ghost" data-copy-source="#import-key">コピー</button></dd>
+    <dt>送信先</dt><dd><code>POST {{ SITE_URL }}{% url 'visits:internal_reservation_email' %}</code></dd>
+    <dt>ヘッダー</dt><dd><code>X-Internal-Token: （サーバーの INTERNAL_API_TOKEN）</code></dd>
+    <dt>本文(JSON)</dt><dd><code>{"stylist_key": "キー", "subject": "...", "body": "...", "received_at": "ISO日時", "from": "..."}</code></dd>
+  </div>
+  <form method="post" action="{% url 'visits:reservation_email_key' %}" data-confirm="キーを再発行すると、n8n側の設定も更新が必要です。続けますか？" class="mt">{% csrf_token %}<button class="btn sm ghost">キーを再発行</button></form>
+</details>
+
+<section class="section">
+  <div class="section-title"><h2>取り込み履歴</h2></div>
+  {% for e in emails %}
+  <div class="card {% if e.status == 'needs_review' or e.status == 'unparsed' %}warn{% endif %}">
+    <div class="row between"><strong class="tiny">{{ e.received_at|jadatetime }} ・ {{ e.subject|default:"(件名なし)"|truncatechars:40 }}</strong><span class="badge {% if e.status == 'applied' %}ok{% elif e.status == 'ignored' %}{% else %}warn{% endif %}">{{ e.get_status_display }}</span></div>
+    <div class="tiny muted">
+      {% if e.parsed %}{{ e.parsed.kind }} ・ {{ e.parsed.customer_name|default:e.parsed.customer_kana }} ・ {{ e.parsed.reserved_for|default:"日時不明" }} ・ {{ e.parsed.menu }} ・ 解析: {{ e.parse_method }}{% endif %}
+      {% if e.error %}<div style="color:var(--danger)">{{ e.error }}</div>{% endif %}
+    </div>
+    <div class="row mt">
+      {% if e.reservation %}<a class="btn sm secondary" href="{% url 'visits:reservation_edit' e.reservation.pk %}">予約を確認{% if not e.reservation.customer %}（お客様を選ぶ）{% endif %}</a>{% endif %}
+      {% if e.status != 'ignored' %}
+      <form method="post" action="{% url 'visits:reservation_email_reparse' e.pk %}">{% csrf_token %}<button class="btn sm ghost">再解析</button></form>
+      <form method="post" action="{% url 'visits:reservation_email_ignore' e.pk %}">{% csrf_token %}<button class="btn sm ghost">無視</button></form>
+      {% endif %}
+    </div>
+  </div>
+  {% empty %}<div class="card flat muted">まだ取り込みはありません</div>{% endfor %}
+</section>
+{% endblock %}

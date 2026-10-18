@@ -1,0 +1,55 @@
+{% extends "base.html" %}{% load humanize tomoni %}
+{% block title %}お金 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}お金（経費・報酬・申告）{% endblock %}
+{% block back %}<a class="back" href="{% url 'core:settings_menu' %}">‹ メニュー</a>{% endblock %}
+{% block content %}
+{% include "ledger/_money_nav.html" %}
+<div class="btn-row mb">
+  <form method="post" action="{% url 'ledger:receipt_upload' %}" enctype="multipart/form-data" class="grow" id="receipt-form">{% csrf_token %}
+    <input type="file" name="file" accept="image/*,application/pdf" capture="environment" multiple style="display:none" id="receipt-input" onchange="document.getElementById('receipt-form').submit()">
+    <button type="button" class="btn" onclick="document.getElementById('receipt-input').click()">📷 レシートを撮る</button>
+  </form>
+  <form method="post" action="{% url 'ledger:statement_upload' %}" enctype="multipart/form-data" class="grow" id="statement-form">{% csrf_token %}
+    <input type="file" name="file" accept="image/*,application/pdf" style="display:none" id="statement-input" onchange="document.getElementById('statement-form').submit()">
+    <button type="button" class="btn secondary" onclick="document.getElementById('statement-input').click()">📄 報酬明細を読み取る</button>
+  </form>
+</div>
+
+{% if pending.receipts or pending.statements or pending.receipts_failed %}
+<div class="card warn tiny">
+  {% if pending.receipts %}<div><a href="{% url 'ledger:receipts' %}">確認待ちのレシート {{ pending.receipts }} 件</a></div>{% endif %}
+  {% if pending.receipts_failed %}<div><a href="{% url 'ledger:receipts' %}">読み取りに失敗したレシート {{ pending.receipts_failed }} 件</a></div>{% endif %}
+  {% if pending.statements %}<div><a href="{% url 'ledger:statements' %}">確認待ちの報酬明細 {{ pending.statements }} 件</a></div>{% endif %}
+</div>
+{% endif %}
+
+<section class="section">
+  <div class="section-title"><h2>{{ year }}年</h2><form method="get"><select name="year" onchange="this.form.submit()" style="min-height:36px;padding:4px 8px;width:auto">{% for y in years %}<option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}年</option>{% endfor %}</select></form></div>
+  <div class="stat-grid">
+    <div class="stat"><div class="num">¥{{ overview.revenue|intcomma }}</div><div class="label">報酬・収入（確定分）</div></div>
+    <div class="stat"><div class="num">¥{{ overview.expenses|intcomma }}</div><div class="label">経費（事業分）</div></div>
+    <div class="stat"><div class="num">¥{{ overview.profit|intcomma }}</div><div class="label">差引（控除前の所得）</div></div>
+    <div class="stat"><div class="num">¥{{ this_month_exp|intcomma }}</div><div class="label">今月の経費</div></div>
+  </div>
+</section>
+
+{% if forecast %}
+<a class="card accent" href="{% url 'ledger:forecast' year %}" style="display:block">
+  <div class="row between"><strong>{{ year }}年の手取り見込み</strong><span class="chev">›</span></div>
+  <div style="font-size:1.4rem;font-weight:700">¥{{ forecast.estimate.net_income|intcomma }} <span class="tiny muted">（月 約 ¥{{ forecast.estimate.net_income_monthly|intcomma }}）</span></div>
+  <div class="tiny muted">収入 ¥{{ forecast.projection.revenue_total|intcomma }} − 経費 ¥{{ forecast.projection.expenses_total|intcomma }} − 税・社保 概算 ¥{{ forecast.estimate.income_tax|add:forecast.estimate.resident_tax|add:forecast.estimate.social_insurance|intcomma }}。実績 {{ forecast.projection.months_actual|length }}か月＋見込み {{ forecast.projection.months_projected|length }}か月</div>
+</a>
+{% else %}
+<div class="card flat muted tiny">報酬明細を1か月分登録すると、年間の手取り見込みが表示されます。</div>
+{% endif %}
+
+<section class="section">
+  <div class="section-title"><h2>やること</h2></div>
+  <a class="list-item" href="{% url 'ledger:expenses' %}?year={{ year }}"><span class="grow">経費の一覧・月別科目別集計</span><span class="chev">›</span></a>
+  <a class="list-item" href="{% url 'ledger:statements' %}?year={{ year }}"><span class="grow">報酬明細の登録・確定</span><span class="chev">›</span></a>
+  <a class="list-item" href="{% url 'ledger:books' year %}"><span class="grow">簡易簿記の帳簿（10万円控除）</span><span class="chev">›</span></a>
+  <a class="list-item" href="{% url 'ledger:journal' year %}"><span class="grow">複式簿記（65万円控除）・会計ソフト用CSV</span><span class="chev">›</span></a>
+  <a class="list-item" href="{% url 'ledger:filings' %}"><span class="grow">開業届・青色申告承認申請書の作成補助</span><span class="chev">›</span></a>
+</section>
+{% include "ledger/_disclaimer.html" %}
+{% endblock %}

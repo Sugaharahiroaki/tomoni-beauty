@@ -1,0 +1,31 @@
+{% extends "base.html" %}{% load tomoni humanize %}
+{% block title %}キャンセル待ち | {{ APP_NAME }}{% endblock %}
+{% block page_title %}キャンセル待ち{% endblock %}
+{% block back %}<a class="back" href="{% url 'broadcasts:list' %}">‹ 配信</a>{% endblock %}
+{% block content %}
+<p class="muted tiny">リッチメニューの「キャンセル待ちに登録」から自動で登録されます（登録時の返信は Reply API なので通数を消費しません）。手で追加もできます。空きが出たら、人数が少なければ1人ずつ「コピーしてLINEで開く」（無料）、多ければ配信（通数消費）で案内します。</p>
+<div class="btn-row mb">
+  <a class="btn secondary" href="{% url 'broadcasts:create' %}?kind=waitlist">待っている人全員に配信</a>
+  <a class="btn ghost" href="{% url 'broadcasts:availability' %}">空き枠を見る</a>
+</div>
+<section class="section">
+  <div class="section-title"><h2>待っている人（{{ active|length }}）</h2></div>
+  {% for w in active %}
+  <div class="list-item">
+    <span class="avatar">{{ w.customer.name|initial }}</span>
+    <span class="grow"><strong>{{ w.customer.name }}</strong><div class="meta">{{ w.get_source_display }} ・ {{ w.created_at|naturaltime }}{% if w.preferred_timing %} ・ 希望: {{ w.preferred_timing }}{% endif %}{% if w.note %} ・ {{ w.note }}{% endif %}</div></span>
+    <a class="btn sm secondary" href="{% url 'customers:detail' w.customer.pk %}">お客様</a>
+    <form method="post" action="{% url 'broadcasts:waitlist_update' w.pk %}">{% csrf_token %}<button class="btn sm ghost" name="action" value="booked">予約済み</button><button class="btn sm ghost" name="action" value="close">終了</button></form>
+  </div>
+  {% empty %}<div class="card flat muted">キャンセル待ちはいません</div>{% endfor %}
+</section>
+<div class="card">
+  <h3>手で追加</h3>
+  <form method="post">{% csrf_token %}{% include "_form.html" %}<button class="btn sm secondary">追加</button></form>
+</div>
+{% if others %}
+<section class="section"><div class="section-title"><h2>過去</h2></div>
+  {% for w in others %}<div class="list-item"><span class="grow">{{ w.customer.name }} <span class="badge">{{ w.get_status_display }}</span><div class="meta">{{ w.updated_at|jadate }}</div></span><form method="post" action="{% url 'broadcasts:waitlist_update' w.pk %}">{% csrf_token %}<button class="btn sm ghost" name="action" value="reopen">待ちに戻す</button></form></div>{% endfor %}
+</section>
+{% endif %}
+{% endblock %}

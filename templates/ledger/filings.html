@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}開業届・青色申告 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}開業届・青色申告承認申請書{% endblock %}
+{% block back %}<a class="back" href="{% url 'ledger:dashboard' %}">‹ お金</a>{% endblock %}
+{% block content %}
+{% include "ledger/_money_nav.html" %}
+<div class="card info tiny">入力した内容から、国税庁の様式に転記するための「記入用シート」と提出期限を作ります。提出は e-Tax（スマホでも可）または税務署へ。書類そのもののPDF出力は行いません。</div>
+<form method="post" class="card">{% csrf_token %}{% include "_form.html" %}<button class="btn">保存して記入用シートを見る</button></form>
+{% if profile.opened_on %}<a class="btn secondary" href="{% url 'ledger:filing_sheet' %}">記入用シートを見る</a>{% endif %}
+{% include "ledger/_disclaimer.html" %}
+{% endblock %}

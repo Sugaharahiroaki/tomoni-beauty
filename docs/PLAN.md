@@ -1,10 +1,10 @@
-# TOMONI Beauty 第1段階（MVP）実装計画 兼 実装メモ
+# TOMONI Beauty 実装計画 兼 実装メモ（第1〜第3段階）
 
 作成日: 2026-10-18 ／ 対象: 業務委託・面貸しの個人美容師向け Web アプリ（PWA）
 
 > 指示書（tomoni-beauty-claude-code-prompt.md）では「計画 → 確認 → 実装」の順でしたが、
-> 「最後まで実装する」という指示に従い、計画と実装を同時に進めました。本書は **計画書であり、同時に実装済みの内容の説明書** です。
-> 判断が必要だった点は `docs/QUESTIONS.md` にまとめ、既定値で実装しています。
+> 「最後まで実装する」「全部実装して」という指示に従い、計画と実装を同時に進めました。本書は **計画書であり、同時に実装済みの内容の説明書** です。
+> §1〜§11 は第1段階（MVP）、§12 は第2・第3段階の追加実装です。判断が必要だった点は `docs/QUESTIONS.md` にまとめ、既定値で実装しています。
 
 ---
 
@@ -291,6 +291,40 @@ sequenceDiagram
 - 画面スモーク: 主要42URLが200で描画
 
 ---
+
+## 12. 第2・第3段階の追加実装
+
+### 12.1 対応表
+
+| 指示書の項目 | 実装 | 場所 |
+| --- | --- | --- |
+| LINE一斉告知・セグメント配信 | `Broadcast`（全体告知 / 絞り込み / 空き枠案内 / キャンセル待ち案内）。タグ・最終来店からの日数・希望時期・過去メニューで絞り込み。送信前に **対象人数・消費通数・今月の残り** を必ず表示し、超過は送信不可、8割超は警告。頻度上限（月N回・最短間隔）でブロック防止。Multicast API で送信、1人1通として `Message(kind=broadcast)` に記録。通数を使わない代替案（リッチメニュー・あいさつ・VOOM）を同じ画面で提示。AIで本文下書き | `apps/broadcasts` |
+| リッチメニュー | 「予約する（計測リンク）」「相談する（返信案）」「キャンセル待ちに登録（postback）」の3ボタン。画像は Pillow で自動生成（日本語フォント要）か自前画像。公開／取り下げ。キャンセル待ち登録時の自動返信は Reply API（無料・文言を事前承認） | `apps/broadcasts/richmenu.py` |
+| 予約通知メールの自動取り込み | `POST /internal/reservations/email/`（n8n IMAP → 内部トークン＋美容師ごとのキー）と、画面での本文貼り付け。正規表現で解析 → 足りなければ Claude で構造化 → 氏名/カナで顧客を名寄せ → 予約登録（キャンセル・変更も反映）→ 案内との帰属 | `apps/visits/email_parser.py` `email_import.py` |
+| 空き枠表示と案内 | `AvailabilitySlot`。「週○時間空き、埋まれば月＋○万円」= 空き時間×60÷平均施術時間×4.33週×客単価×歩合率。空き枠を選んで配信、またはキャンセル待ちに個別案内 | `apps/broadcasts/services.py` |
+| 報酬明細の読み取り（OCR） | 写真/PDF → Claude vision → 売上・歩合・報酬・控除・源泉・振込額 → 確認して確定。控除項目は経費（報酬から天引き）として自動連携 | `apps/ledger/ocr.py` |
+| レシート撮影 → 経費 → 月別科目別 | Claude vision で日付・店名・金額・科目候補 → 確認して `Expense`。家事按分（事業割合）。月別×科目別の集計表・CSV | `apps/ledger` |
+| 青色申告（簡易簿記・10万円控除）の帳簿 | 月別科目別、経費帳、売掛帳、現金出納帳（HTML・CSV） | `apps/ledger/books.py` |
+| 開業届・青色申告承認申請書の作成補助 | 記入項目フォーム → 国税庁様式への記入用シート（印刷可）＋提出期限（1か月以内 / 3月15日 or 2か月以内、土日繰り下げ） | `apps/ledger/filings.py` |
+| 年間の手取り見込み | 実績月＋見込み月 → 所得税（速算表・復興税・2025年改正の基礎控除）・住民税・国保・国民年金の概算 → 手取り、納付/還付見込み。前提は美容師ごとに変更可 | `apps/ledger/tax.py` |
+| 複式簿記（65万円控除） | 確定データから自動仕訳（発生主義・事業主貸借）→ 仕訳帳・総勘定元帳・試算表・損益計算書・貸借対照表・決算書転記表。期首残高と手入力仕訳 | `apps/ledger/journal.py` |
+| e-Tax／会計ソフト向け出力 | 弥生会計（仕訳日記帳25列・Shift_JIS）、freee（取引CSV）、汎用仕訳帳、e-Tax転記表（決算書欄＋申告書の概算値）。XTX は生成しない | `apps/ledger/exports.py` |
+
+詳細は `docs/LEDGER.md`。
+
+### 12.2 追加モデル
+
+`broadcasts`: AvailabilitySlot, WaitlistEntry, Broadcast, BroadcastRecipient, RichMenu ／ `visits`: ReservationEmail ／ `ledger`: Receipt, Expense, IncomeStatement, OtherIncome, OpeningBalance, ManualJournalEntry, TaxSettings, FilingProfile ／ `accounts.Stylist` に avg_service_minutes, max_broadcasts_per_month, broadcast_min_interval_days, email_import_key を追加。
+
+### 12.3 追加画面
+
+メニュー › 集客: 一斉配信（一覧 / 作成 / 確認・送信）、空き枠、キャンセル待ち、リッチメニュー。
+メニュー › お金: ホーム（年の数字・手取り見込み）、レシート（撮影 → 確認）、経費（一覧・月別科目別・CSV）、報酬明細（読み取り → 確認 → 確定）、帳簿（4タブ）、複式簿記（6タブ・CSV4種・期首残高・手入力仕訳）、手取り見込み（前提の変更）、届出（入力 → 記入用シート）。
+メニュー › 日々の仕事: 予約通知メールの取り込み（貼り付け・履歴・n8n用キー）。
+
+### 12.4 n8n
+
+`n8n/reservation_email_workflow.json`（IMAP → 内部API）を追加。日次ワークフローは変更なし。
 
 ## 11. 検証計画（指示書11）に対応するログ
 

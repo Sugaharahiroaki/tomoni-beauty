@@ -1,0 +1,26 @@
+{% extends "base.html" %}{% load humanize %}
+{% block title %}レシート確認 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}レシートの確認{% endblock %}
+{% block back %}<a class="back" href="{% url 'ledger:receipts' %}">‹ レシート</a>{% endblock %}
+{% block content %}
+<div class="row" style="align-items:flex-start">
+  <div style="width:38%"><a href="{{ receipt.file.url }}" target="_blank" rel="noopener">{% if receipt.file.name|lower|slice:"-4:" == ".pdf" %}<div class="card flat center tiny">PDF を開く</div>{% else %}<img src="{{ receipt.file.url }}" alt="" style="width:100%;border-radius:8px;border:1px solid var(--border)">{% endif %}</a></div>
+  <div class="grow">
+    {% if receipt.is_processing %}
+      <div class="card" data-poll-url="{% url 'ledger:receipt_status' receipt.pk %}"><strong>読み取り中…</strong><p class="muted tiny">数十秒お待ちください。</p><div class="progress"><div style="width:50%"></div></div></div>
+    {% elif receipt.status == "failed" %}
+      <div class="card danger tiny">読み取れませんでした: {{ receipt.error }}<form method="post" action="{% url 'ledger:receipt_retry' receipt.pk %}" class="mt">{% csrf_token %}<button class="btn sm secondary">もう一度読み取る</button></form></div>
+    {% elif ocr %}
+      <div class="card flat tiny"><strong>読み取り結果</strong>（確からしさ: {{ ocr.confidence }}）<div>{{ ocr.vendor }} ・ {{ ocr.date }} ・ ¥{{ ocr.total|default:0|intcomma }}</div>{% for i in ocr.items %}<div class="muted">・{{ i.name }}{% if i.amount %} ¥{{ i.amount|intcomma }}{% endif %}</div>{% endfor %}{% if ocr.notes %}<div class="muted">{{ ocr.notes }}</div>{% endif %}</div>
+    {% endif %}
+  </div>
+</div>
+{% if form %}
+<form method="post" class="card mt">{% csrf_token %}
+  {% include "_form.html" %}
+  <button class="btn">経費として登録</button>
+</form>
+{% endif %}
+<form method="post" action="{% url 'ledger:receipt_delete' receipt.pk %}" data-confirm="このレシートを削除しますか？" class="mt">{% csrf_token %}<button class="btn ghost" style="color:var(--danger)">削除</button></form>
+{% include "ledger/_disclaimer.html" %}
+{% endblock %}

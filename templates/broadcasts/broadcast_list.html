@@ -1,0 +1,40 @@
+{% extends "base.html" %}{% load tomoni %}
+{% block title %}一斉配信 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}一斉配信{% endblock %}
+{% block back %}<a class="back" href="{% url 'core:settings_menu' %}">‹ メニュー</a>{% endblock %}
+{% block topaction %}<a class="action" href="{% url 'broadcasts:create' %}">＋ 作る</a>{% endblock %}
+{% block content %}
+<div class="card {% if frequency.blocked %}warn{% else %}info{% endif %}">
+  <strong>通数を使う配信は、月1回・本当に効く告知だけに。</strong>
+  <p class="tiny" style="margin:4px 0 0">今月の配信 {{ frequency.sent_this_month }} / {{ stylist.max_broadcasts_per_month }} 回{% if frequency.last_sent_at %} ・ 前回 {{ frequency.last_sent_at|jadate }}{% endif %}
+  {% if quota %}・ 今月の通数 {{ quota.used }} / {{ quota.limit|default:"∞" }}{% endif %}</p>
+  {% for r in frequency.reasons %}<div class="tiny" style="color:var(--warn)">{{ r }}</div>{% endfor %}
+  {% if not channel or not channel.is_verified %}<div class="tiny" style="color:var(--danger)">LINEチャネルが未接続です。<a href="{% url 'lineapp:settings' %}">設定</a></div>{% endif %}
+</div>
+
+<div class="stat-grid mb">
+  <a class="stat" href="{% url 'broadcasts:create' %}?kind=announcement"><div class="num">📣</div><div class="label">全体告知（休業日・新メニュー）</div></a>
+  <a class="stat" href="{% url 'broadcasts:create' %}?kind=segment"><div class="num">🎯</div><div class="label">絞り込み配信（最終来店2か月以上など）</div></a>
+  <a class="stat" href="{% url 'broadcasts:availability' %}"><div class="num">🗓</div><div class="label">空き枠の登録と案内</div></a>
+  <a class="stat" href="{% url 'broadcasts:waitlist' %}"><div class="num">🔔</div><div class="label">キャンセル待ち</div></a>
+</div>
+
+{% if drafts %}
+<section class="section">
+  <div class="section-title"><h2>下書き</h2></div>
+  {% for b in drafts %}<a class="list-item" href="{% url 'broadcasts:detail' b.pk %}"><span class="grow"><strong>{{ b.title }}</strong> <span class="badge accent">{{ b.get_kind_display }}</span><div class="meta">{{ b.body|truncatechars:60|default:"（本文なし）" }}</div></span><span class="chev">›</span></a>{% endfor %}
+</section>
+{% endif %}
+
+<section class="section">
+  <div class="section-title"><h2>通数を使わない代わりの手段</h2></div>
+  {% for a in alternatives %}
+  <div class="card flat"><strong class="tiny">{{ a.title }}</strong><p class="tiny muted" style="margin:2px 0 0">{{ a.detail }}</p>{% if a.url_name %}<a class="tiny" href="{% url a.url_name %}">開く ›</a>{% endif %}</div>
+  {% endfor %}
+</section>
+
+<section class="section">
+  <div class="section-title"><h2>履歴</h2></div>
+  {% for b in history %}<a class="list-item" href="{% url 'broadcasts:detail' b.pk %}"><span class="grow">{{ b.title }} <span class="badge {{ b.status|badge_class }}">{{ b.get_status_display }}</span><div class="meta">{{ b.sent_at|jadatetime }} ・ {{ b.sent_count }}人に送信{% if b.failed_count %} ・ 失敗 {{ b.failed_count }}{% endif %}</div></span><span class="chev">›</span></a>{% empty %}<div class="card flat muted">まだ配信していません</div>{% endfor %}
+</section>
+{% endblock %}

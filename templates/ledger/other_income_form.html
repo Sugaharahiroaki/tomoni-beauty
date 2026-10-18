@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}その他収入 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}その他収入{% endblock %}
+{% block back %}<a class="back" href="{% url 'ledger:statements' %}">‹ 報酬</a>{% endblock %}
+{% block content %}
+<p class="muted tiny">商品販売・講師料など、サロンからの報酬以外の事業収入を記録します。</p>
+<form method="post" class="card">{% csrf_token %}
+  {% include "_form.html" %}
+  <div class="btn-row"><button class="btn">保存</button>{% if obj %}<button class="btn ghost" name="delete" value="1" style="color:var(--danger)">削除</button>{% endif %}</div>
+</form>
+{% endblock %}

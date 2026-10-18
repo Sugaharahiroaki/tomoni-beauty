@@ -18,7 +18,24 @@
   <a class="list-item" href="{% url 'drafts:list' %}"><span class="grow">LINE文面の下書き</span><span class="chev">›</span></a>
   <a class="list-item" href="{% url 'visits:reservation_list' %}"><span class="grow">予約・来店</span><span class="chev">›</span></a>
   <a class="list-item" href="{% url 'visits:followup_list' %}"><span class="grow">フォロー予定</span><span class="chev">›</span></a>
+  <a class="list-item" href="{% url 'visits:reservation_emails' %}"><span class="grow">予約通知メールの取り込み</span><span class="chev">›</span></a>
   <a class="list-item" href="{% url 'core:stats' %}"><span class="grow">実績（案内→予約）</span><span class="chev">›</span></a>
+</section>
+
+<section class="section">
+  <div class="section-title"><h2>集客（通数を使う機能は確認画面つき）</h2></div>
+  <a class="list-item" href="{% url 'broadcasts:list' %}"><span class="grow">一斉告知・絞り込み配信</span><span class="chev">›</span></a>
+  <a class="list-item" href="{% url 'broadcasts:availability' %}"><span class="grow">空き枠（週○時間空き・埋まれば月＋○万円）</span><span class="chev">›</span></a>
+  <a class="list-item" href="{% url 'broadcasts:waitlist' %}"><span class="grow">キャンセル待ち</span><span class="chev">›</span></a>
+  <a class="list-item" href="{% url 'broadcasts:richmenu' %}"><span class="grow">リッチメニュー（予約する／相談する／キャンセル待ち）</span><span class="chev">›</span></a>
+</section>
+
+<section class="section">
+  <div class="section-title"><h2>お金（経費・報酬・青色申告）</h2></div>
+  <a class="list-item" href="{% url 'ledger:dashboard' %}"><span class="grow">お金のホーム・手取り見込み</span><span class="chev">›</span></a>
+  <a class="list-item" href="{% url 'ledger:receipts' %}"><span class="grow">レシート撮影 → 経費</span><span class="chev">›</span></a>
+  <a class="list-item" href="{% url 'ledger:statements' %}"><span class="grow">報酬明細の読み取り</span><span class="chev">›</span></a>
+  <a class="list-item" href="{% url 'ledger:filings' %}"><span class="grow">開業届・青色申告承認申請書</span><span class="chev">›</span></a>
 </section>
 
 <section class="section">

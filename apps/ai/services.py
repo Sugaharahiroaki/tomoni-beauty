@@ -98,6 +98,27 @@ def build_episodes(qa_pairs: list[dict], stylist_name: str) -> dict:
     return get_ai().generate_json("episodes", prompts.EPISODES_SYSTEM, user, schemas.EPISODES_SCHEMA, max_tokens=12000)
 
 
+def draft_broadcast(kind: str, notes: str, style: dict | None, has_reservation_link: bool, slots_text: str = "", segment_summary: str = "") -> dict:
+    user = (
+        f"【文体設定】\n{format_style(style)}\n\n【kind】{kind}\n【予約リンク: {'あり' if has_reservation_link else 'なし'}】\n"
+        f"【絞り込み条件】{segment_summary or 'なし（全員）'}\n【空き枠】\n{slots_text or 'なし'}\n\n【伝えたい内容（美容師のメモ）】\n{notes.strip() or '（指定なし）'}"
+    )
+    return get_ai().generate_json("broadcast", prompts.BROADCAST_SYSTEM, user, schemas.BROADCAST_SCHEMA, max_tokens=3000)
+
+
+def ocr_receipt(data: bytes, media_type: str) -> dict:
+    return get_ai().generate_json_with_document("ocr_receipt", prompts.RECEIPT_OCR_SYSTEM, "このレシートを読み取ってください。", schemas.RECEIPT_SCHEMA, data, media_type)
+
+
+def ocr_statement(data: bytes, media_type: str) -> dict:
+    return get_ai().generate_json_with_document("ocr_statement", prompts.STATEMENT_OCR_SYSTEM, "この報酬明細を読み取ってください。", schemas.STATEMENT_SCHEMA, data, media_type)
+
+
+def parse_reservation_email(subject: str, body: str, received_at_iso: str) -> dict:
+    user = f"【受信日時】{received_at_iso}\n【件名】{subject}\n\n【本文】\n{body[:6000]}"
+    return get_ai().generate_json("reservation_email", prompts.RESERVATION_EMAIL_SYSTEM, user, schemas.RESERVATION_EMAIL_SCHEMA, max_tokens=2000)
+
+
 def suggest_reply(inbound_text: str, style: dict | None, has_reservation_link: bool, customer_context: str, recent_history: list[dict]) -> dict:
     history = "\n".join(f"[{h['who']}] {h['text']}" for h in recent_history) or "なし"
     user = (

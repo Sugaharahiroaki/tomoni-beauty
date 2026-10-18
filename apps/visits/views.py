@@ -1,15 +1,97 @@
+import json
+from datetime import datetime
+
 from django.contrib import messages
+from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
+from apps.accounts.models import Stylist
 from apps.core.dates import today_local
 from apps.core.decorators import stylist_required
+from apps.core.views import _internal_token_ok
 from apps.customers.models import Customer
 
+from .email_import import import_reservation_email, reparse_email
 from .forms import ReservationForm, VisitForm
-from .models import FollowUp, Reservation, Visit
+from .models import FollowUp, Reservation, ReservationEmail, Visit
 from .services import attribute_reservation, mark_visited
+
+
+# ---------------------------------------------------------------------------
+# 予約通知メールの取り込み
+# ---------------------------------------------------------------------------
+@csrf_exempt
+@require_POST
+def internal_reservation_email(request):
+    """n8n（IMAP）から: {"stylist_key": "...", "subject": "...", "body": "...", "received_at": ISO, "from": "..."}"""
+    if not _internal_token_ok(request):
+        return HttpResponseForbidden("forbidden")
+    try:
+        payload = json.loads(request.body.decode("utf-8") or "{}")
+    except (ValueError, UnicodeDecodeError):
+        return JsonResponse({"error": "invalid json"}, status=400)
+    key = (payload.get("stylist_key") or "").strip()
+    stylist = Stylist.objects.filter(email_import_key=key).first() if key else None
+    if stylist is None:
+        return JsonResponse({"error": "unknown stylist_key"}, status=404)
+    received_at = parse_datetime(payload.get("received_at") or "") or timezone.now()
+    if timezone.is_naive(received_at):
+        received_at = timezone.make_aware(received_at, timezone.get_current_timezone())
+    email = import_reservation_email(stylist, payload.get("subject") or "", payload.get("body") or "", received_at, payload.get("from") or "", source="n8n")
+    return JsonResponse({"status": email.status, "parse_method": email.parse_method, "reservation_id": email.reservation_id, "error": email.error})
+
+
+@stylist_required
+def reservation_emails(request):
+    stylist = request.stylist
+    stylist.ensure_email_import_key()
+    if request.method == "POST":
+        subject = (request.POST.get("subject") or "").strip()
+        body = (request.POST.get("body") or "").strip()
+        if not body:
+            messages.error(request, "メール本文を貼り付けてください")
+        else:
+            email = import_reservation_email(stylist, subject, body, timezone.now(), source="paste")
+            if email.status == ReservationEmail.Status.APPLIED:
+                messages.success(request, "予約として登録しました")
+            elif email.status == ReservationEmail.Status.NEEDS_REVIEW:
+                messages.warning(request, f"登録しましたが確認が必要です: {email.error}")
+            else:
+                messages.error(request, email.error or "読み取れませんでした")
+        return redirect("visits:reservation_emails")
+    emails = ReservationEmail.objects.filter(stylist=stylist).select_related("reservation", "reservation__customer")[:50]
+    return render(request, "visits/reservation_emails.html", {"emails": emails, "import_key": stylist.email_import_key})
+
+
+@stylist_required
+@require_POST
+def reservation_email_reparse(request, pk: int):
+    email = get_object_or_404(ReservationEmail, pk=pk, stylist=request.stylist)
+    reparse_email(email)
+    messages.info(request, f"再解析しました: {email.get_status_display()}")
+    return redirect("visits:reservation_emails")
+
+
+@stylist_required
+@require_POST
+def reservation_email_ignore(request, pk: int):
+    email = get_object_or_404(ReservationEmail, pk=pk, stylist=request.stylist)
+    email.status = ReservationEmail.Status.IGNORED
+    email.save(update_fields=["status", "updated_at"])
+    return redirect("visits:reservation_emails")
+
+
+@stylist_required
+@require_POST
+def reservation_email_key_regenerate(request):
+    request.stylist.email_import_key = ""
+    request.stylist.ensure_email_import_key()
+    messages.success(request, "取り込みキーを再発行しました。n8n側の設定も更新してください。")
+    return redirect("visits:reservation_emails")
 
 
 @stylist_required

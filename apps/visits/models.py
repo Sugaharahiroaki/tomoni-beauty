@@ -62,6 +62,39 @@ class Visit(TimeStampedModel):
         return f"{self.customer} {self.visited_at:%Y/%m/%d}"
 
 
+class ReservationEmail(TimeStampedModel):
+    """予約通知メールの取り込みログ。本文は解析と手直しのために保持（不要になれば削除可）。"""
+
+    class Status(models.TextChoices):
+        PARSED = "parsed", "解析済み"
+        APPLIED = "applied", "予約に反映"
+        NEEDS_REVIEW = "needs_review", "要確認"
+        UNPARSED = "unparsed", "読み取れず"
+        IGNORED = "ignored", "無視"
+
+    stylist = models.ForeignKey("accounts.Stylist", on_delete=models.CASCADE, related_name="reservation_emails")
+    received_at = models.DateTimeField("受信日時")
+    sender = models.CharField("送信元", max_length=200, blank=True)
+    subject = models.CharField("件名", max_length=300, blank=True)
+    body = models.TextField("本文")
+    source = models.CharField("取り込み元", max_length=10, default="n8n")  # n8n | paste
+    parse_method = models.CharField(max_length=20, blank=True)  # regex | ai | regex+ai | failed
+    parsed = models.JSONField(default=dict, blank=True)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.PARSED)
+    reservation = models.ForeignKey(Reservation, on_delete=models.SET_NULL, null=True, blank=True, related_name="source_emails")
+    error = models.CharField(max_length=300, blank=True)
+
+    objects = TenantManager()
+
+    class Meta:
+        ordering = ["-received_at"]
+        verbose_name = "予約通知メール"
+        verbose_name_plural = "予約通知メール"
+
+    def __str__(self):
+        return f"{self.subject[:30]} ({self.get_status_display()})"
+
+
 class FollowUp(TimeStampedModel):
     class Kind(models.TextChoices):
         NEXT_VISIT = "next_visit", "次回来店の案内"

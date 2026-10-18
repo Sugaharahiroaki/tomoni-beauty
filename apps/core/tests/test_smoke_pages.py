@@ -73,6 +73,11 @@ def test_pages_render(client_logged, customer, world):
         reverse("lineapp:inbound_detail", kwargs={"pk": world["inbound"].pk}),
         reverse("lineapp:inbound_status", kwargs={"pk": world["inbound"].pk}),
         reverse("accounts:export_data"),
+        reverse("visits:reservation_emails"),
+        reverse("broadcasts:list"),
+        reverse("ledger:dashboard"),
+        reverse("core:terms"),
+        reverse("core:privacy"),
     ]
     for url in urls:
         resp = client_logged.get(url)

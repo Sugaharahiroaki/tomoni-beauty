@@ -67,6 +67,14 @@ class Stylist(models.Model):
     weekly_slot_hours = models.DecimalField("週の稼働時間(h)", max_digits=5, decimal_places=1, null=True, blank=True)
     default_cycle_weeks = models.PositiveSmallIntegerField("標準の来店周期(週)", default=6)
     follow_up_lead_days = models.PositiveSmallIntegerField("次回案内を送る日数(来店目安の何日前)", default=7)
+    avg_service_minutes = models.PositiveSmallIntegerField("1人あたりの平均施術時間(分)", default=90)
+
+    # 一斉配信の頻度上限（ブロック防止・通数節約）
+    max_broadcasts_per_month = models.PositiveSmallIntegerField("一斉配信の月間上限(回)", default=1)
+    broadcast_min_interval_days = models.PositiveSmallIntegerField("一斉配信の最短間隔(日)", default=14)
+
+    # 予約通知メール取り込み用のキー（n8n から送る際に美容師を特定）
+    email_import_key = models.CharField(max_length=40, blank=True, default="", db_index=True)
 
     onboarding_completed = models.BooleanField("初期設定完了", default=False)
     interview_completed = models.BooleanField("インタビュー完了", default=False)
@@ -88,3 +96,11 @@ class Stylist(models.Model):
     def line_ready(self) -> bool:
         channel = getattr(self, "line_channel", None)
         return bool(channel and channel.is_verified)
+
+    def ensure_email_import_key(self) -> str:
+        if not self.email_import_key:
+            import secrets
+
+            self.email_import_key = secrets.token_urlsafe(24)
+            self.save(update_fields=["email_import_key", "updated_at"])
+        return self.email_import_key

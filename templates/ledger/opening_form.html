@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}期首残高 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}{{ year }}年 期首残高{% endblock %}
+{% block back %}<a class="back" href="{% url 'ledger:journal' year %}?tab=bs">‹ 複式簿記</a>{% endblock %}
+{% block content %}
+<p class="muted tiny">{{ year }}年1月1日時点の事業用の現金・預金残高と、前年分で未入金の報酬（売掛金）を入力します。合計が元入金になります。開業初年度は0のままでも構いません。</p>
+<form method="post" class="card">{% csrf_token %}{% include "_form.html" %}<button class="btn">保存</button></form>
+{% include "ledger/_disclaimer.html" %}
+{% endblock %}

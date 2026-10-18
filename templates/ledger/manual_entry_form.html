@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}仕訳を追加 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}仕訳を手で追加{% endblock %}
+{% block back %}<a class="back" href="{% url 'ledger:journal' year %}">‹ 複式簿記</a>{% endblock %}
+{% block content %}
+<p class="muted tiny">自動仕訳で表せない取引（事業用口座への入金・引き出し、固定資産の購入など）を追加します。例: 事業用口座に生活費から入金 → 借方 普通預金 / 貸方 事業主借。口座から生活費を引き出し → 借方 事業主貸 / 貸方 普通預金。</p>
+<form method="post" class="card">{% csrf_token %}{% include "_form.html" %}<button class="btn">追加</button></form>
+{% include "ledger/_disclaimer.html" %}
+{% endblock %}

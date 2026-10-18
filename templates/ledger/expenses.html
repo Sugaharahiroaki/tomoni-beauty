@@ -1,0 +1,37 @@
+{% extends "base.html" %}{% load humanize tomoni %}
+{% block title %}経費 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}経費 {{ year }}年{% if month %}{{ month }}月{% endif %}{% endblock %}
+{% block back %}<a class="back" href="{% url 'ledger:dashboard' %}?year={{ year }}">‹ お金</a>{% endblock %}
+{% block topaction %}<a class="action" href="{% url 'ledger:expense_create' %}">＋ 手入力</a>{% endblock %}
+{% block content %}
+{% include "ledger/_money_nav.html" %}
+<div class="btn-row mb">
+  <a class="btn" href="{% url 'ledger:receipts' %}">📷 レシートを撮る</a>
+  <a class="btn ghost" href="{% url 'ledger:expenses_csv' %}?year={{ year }}">CSV</a>
+</div>
+<div class="row mb" style="overflow-x:auto">
+  <form method="get"><select name="year" onchange="this.form.submit()" style="min-height:36px;padding:4px 8px;width:auto">{% for y in years %}<option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}年</option>{% endfor %}</select></form>
+  <div class="chips" style="flex-wrap:nowrap"><a class="chip {% if not month %}active{% endif %}" href="?year={{ year }}">全月</a>{% for m in months %}<a class="chip {% if m == month %}active{% endif %}" href="?year={{ year }}&month={{ m }}">{{ m }}月</a>{% endfor %}</div>
+</div>
+<style>.chip.active{background:var(--accent);color:#fff}</style>
+
+<div class="card">
+  <strong class="tiny">{{ year }}年 科目別（事業分・確定のみ）</strong>
+  <table class="simple mt"><thead><tr><th>科目</th>{% if month %}<th>{{ month }}月</th>{% endif %}<th>年計</th></tr></thead><tbody>
+  {% for r in summary.rows %}<tr><td>{{ r.label }}</td>{% if month %}<td>¥{{ r.months|slice:month|last|intcomma }}</td>{% endif %}<td>¥{{ r.total|intcomma }}</td></tr>{% empty %}<tr><td colspan="3" class="muted">まだ経費がありません</td></tr>{% endfor %}
+  <tr><th>合計</th>{% if month %}<th>¥{{ summary.month_totals|slice:month|last|intcomma }}</th>{% endif %}<th>¥{{ summary.total|intcomma }}</th></tr>
+  </tbody></table>
+</div>
+
+<section class="section">
+  <div class="section-title"><h2>明細</h2></div>
+  {% for e in expenses %}
+  <a class="list-item" href="{% url 'ledger:expense_edit' e.pk %}">
+    <span class="grow"><strong>{{ e.date|jadate }}</strong> {{ e.category_label }} <span class="badge {% if e.status == 'confirmed' %}ok{% else %}warn{% endif %}">{{ e.get_status_display }}</span>
+      <div class="meta">{{ e.vendor }} {{ e.description }}{% if e.statement %} ・ 明細控除{% elif e.receipt %} ・ レシート{% endif %}{% if e.business_ratio != 100 %} ・ 事業{{ e.business_ratio }}%{% endif %}</div></span>
+    <span><strong>¥{{ e.business_amount|intcomma }}</strong></span>
+  </a>
+  {% empty %}<div class="card flat muted">経費がありません</div>{% endfor %}
+</section>
+{% include "ledger/_disclaimer.html" %}
+{% endblock %}

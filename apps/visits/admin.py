@@ -1,6 +1,12 @@
 from django.contrib import admin
 
-from .models import FollowUp, Reservation, Visit
+from .models import FollowUp, Reservation, ReservationEmail, Visit
+
+
+@admin.register(ReservationEmail)
+class ReservationEmailAdmin(admin.ModelAdmin):
+    list_display = ["subject", "stylist", "received_at", "status", "parse_method", "reservation"]
+    list_filter = ["status", "parse_method"]
 
 
 @admin.register(Reservation)

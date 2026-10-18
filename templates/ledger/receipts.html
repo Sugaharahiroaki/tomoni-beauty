@@ -1,0 +1,25 @@
+{% extends "base.html" %}{% load tomoni humanize %}
+{% block title %}レシート | {{ APP_NAME }}{% endblock %}
+{% block page_title %}レシート{% endblock %}
+{% block back %}<a class="back" href="{% url 'ledger:dashboard' %}">‹ お金</a>{% endblock %}
+{% block content %}
+{% include "ledger/_money_nav.html" %}
+<form method="post" action="{% url 'ledger:receipt_upload' %}" enctype="multipart/form-data" class="card">{% csrf_token %}
+  <label for="file">レシート・領収書の写真（複数可・PDF可）</label>
+  <input type="file" id="file" name="file" accept="image/*,application/pdf" capture="environment" multiple>
+  <button class="btn mt">読み取る</button>
+  <p class="muted tiny">日付・店名・金額・科目の候補をAIが読み取ります。内容を確認して登録してください。</p>
+</form>
+<section class="section">
+  <div class="section-title"><h2>確認待ち</h2></div>
+  {% for r in pending %}
+  <a class="list-item" href="{% url 'ledger:receipt_review' r.pk %}"><span class="grow"><span class="badge {{ r.status|badge_class }}">{{ r.get_status_display }}</span> {% if r.ocr_raw.vendor %}{{ r.ocr_raw.vendor }} ¥{{ r.ocr_raw.total|default:0|intcomma }}{% else %}レシート #{{ r.pk }}{% endif %}<div class="meta">{{ r.created_at|naturaltime }}{% if r.error %} ・ {{ r.error }}{% endif %}</div></span><span class="chev">›</span></a>
+  {% empty %}<div class="card flat muted">確認待ちはありません</div>{% endfor %}
+</section>
+{% if applied %}
+<section class="section"><div class="section-title"><h2>登録済み</h2></div>
+  {% for r in applied %}<a class="list-item" href="{% url 'ledger:receipt_review' r.pk %}"><span class="grow">{{ r.expense.date|jadate }} {{ r.expense.category_label }} ¥{{ r.expense.amount|intcomma }}<div class="meta">{{ r.expense.vendor }}</div></span><span class="chev">›</span></a>{% endfor %}
+</section>
+{% endif %}
+{% include "ledger/_disclaimer.html" %}
+{% endblock %}

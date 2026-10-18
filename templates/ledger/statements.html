@@ -1,0 +1,32 @@
+{% extends "base.html" %}{% load humanize tomoni %}
+{% block title %}報酬明細 | {{ APP_NAME }}{% endblock %}
+{% block page_title %}報酬明細 {{ year }}年{% endblock %}
+{% block back %}<a class="back" href="{% url 'ledger:dashboard' %}?year={{ year }}">‹ お金</a>{% endblock %}
+{% block topaction %}<a class="action" href="{% url 'ledger:statement_create' %}">＋ 手入力</a>{% endblock %}
+{% block content %}
+{% include "ledger/_money_nav.html" %}
+<form method="post" action="{% url 'ledger:statement_upload' %}" enctype="multipart/form-data" class="card">{% csrf_token %}
+  <label for="file">報酬明細の写真 / PDF</label>
+  <input type="file" id="file" name="file" accept="image/*,application/pdf">
+  <button class="btn mt">読み取る</button>
+  <p class="muted tiny">売上・歩合・報酬額・控除（材料費・場所代など）・源泉徴収・振込額を読み取ります。確認して「確定」すると帳簿に反映されます。</p>
+</form>
+<div class="row mb"><form method="get"><select name="year" onchange="this.form.submit()" style="min-height:36px;padding:4px 8px;width:auto">{% for y in years %}<option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}年</option>{% endfor %}</select></form><a class="btn sm ghost" href="{% url 'ledger:other_income_create' %}">その他収入を追加</a></div>
+<div class="stat-grid mb">
+  <div class="stat"><div class="num">¥{{ summary.total_commission|intcomma }}</div><div class="label">報酬（控除前・確定分）</div></div>
+  <div class="stat"><div class="num">¥{{ summary.total_net|intcomma }}</div><div class="label">振込額合計</div></div>
+  <div class="stat"><div class="num">¥{{ summary.total_deductions|intcomma }}</div><div class="label">明細上の控除（経費へ）</div></div>
+  <div class="stat"><div class="num">¥{{ summary.total_withheld|intcomma }}</div><div class="label">源泉徴収</div></div>
+</div>
+<section class="section">
+  {% for s in statements %}
+  <a class="list-item" href="{% url 'ledger:statement_edit' s.pk %}">
+    <span class="grow"><strong>{{ s.year }}年{{ s.month }}月分</strong> {{ s.salon_name }} <span class="badge {% if s.status == 'confirmed' %}ok{% elif s.status == 'processing' %}warn{% elif s.status == 'failed' %}danger{% else %}accent{% endif %}">{{ s.get_status_display }}</span>
+      <div class="meta">報酬 ¥{{ s.commission_amount|intcomma }} − 控除 ¥{{ s.deductions_total|intcomma }} − 源泉 ¥{{ s.withholding_tax|intcomma }} → 振込 ¥{{ s.net_paid|intcomma }}{% if s.balance_diff != 0 %} <span class="badge danger">差額 {{ s.balance_diff|intcomma }}</span>{% endif %}</div></span>
+    <span class="chev">›</span>
+  </a>
+  {% empty %}<div class="card flat muted">{{ year }}年の明細はまだありません</div>{% endfor %}
+  {% for o in others %}<a class="list-item" href="{% url 'ledger:other_income_edit' o.pk %}"><span class="grow"><strong>{{ o.date|jadate }}</strong> {{ o.description }} <span class="badge">その他収入</span></span><span>¥{{ o.amount|intcomma }}</span></a>{% endfor %}
+</section>
+{% include "ledger/_disclaimer.html" %}
+{% endblock %}

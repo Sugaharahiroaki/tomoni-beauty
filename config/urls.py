@@ -13,6 +13,8 @@ urlpatterns = [
     path("", include("apps.karte.urls")),
     path("", include("apps.drafts.urls")),
     path("", include("apps.lineapp.urls")),
+    path("", include("apps.broadcasts.urls")),
+    path("money/", include("apps.ledger.urls")),
 ]
 
 if settings.DEBUG:

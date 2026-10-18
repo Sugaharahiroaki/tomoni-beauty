@@ -1,0 +1,11 @@
+{% load tomoni %}
+<div class="chips mb" style="overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px">
+  <a class="chip {% active 'ledger:dashboard' %}" href="{% url 'ledger:dashboard' %}">ホーム</a>
+  <a class="chip {% active 'ledger:expenses' 'ledger:expense_create' 'ledger:expense_edit' 'ledger:receipts' 'ledger:receipt_review' %}" href="{% url 'ledger:expenses' %}">経費</a>
+  <a class="chip {% active 'ledger:statements' 'ledger:statement_edit' 'ledger:statement_create' %}" href="{% url 'ledger:statements' %}">報酬</a>
+  <a class="chip {% active 'ledger:books' %}" href="{% url 'ledger:books' year|default:2026 %}">帳簿</a>
+  <a class="chip {% active 'ledger:journal' %}" href="{% url 'ledger:journal' year|default:2026 %}">複式簿記</a>
+  <a class="chip {% active 'ledger:forecast' %}" href="{% url 'ledger:forecast' year|default:2026 %}">手取り見込み</a>
+  <a class="chip {% active 'ledger:filings' 'ledger:filing_sheet' %}" href="{% url 'ledger:filings' %}">届出</a>
+</div>
+<style>.chip.active{background:var(--accent);color:#fff}</style>

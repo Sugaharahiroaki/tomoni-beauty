@@ -1,0 +1,47 @@
+{% extends "base.html" %}{% load tomoni %}
+{% block title %}{{ broadcast.title }} | {{ APP_NAME }}{% endblock %}
+{% block page_title %}{{ broadcast.title }}{% endblock %}
+{% block back %}<a class="back" href="{% url 'broadcasts:list' %}">‹ 配信</a>{% endblock %}
+{% block topaction %}{% if broadcast.is_editable %}<a class="action" href="{% url 'broadcasts:edit' broadcast.pk %}">編集</a>{% else %}<span class="action"></span>{% endif %}{% endblock %}
+{% block content %}
+<div class="card flat tiny"><span class="badge {{ broadcast.status|badge_class }}">{{ broadcast.get_status_display }}</span> {{ broadcast.get_kind_display }}{% if segment_lines %} ・ {{ segment_lines|join:" / " }}{% endif %}</div>
+
+<div class="card"><strong class="tiny">本文</strong><p class="body-text" style="margin:6px 0 0">{{ broadcast.body|default:"（本文がありません。編集から入力してください）" }}</p>{% if broadcast.slots.exists %}<div class="chips mt">{% for s in broadcast.slots.all %}<span class="chip">{{ s.label }}</span>{% endfor %}</div>{% endif %}</div>
+
+{% if estimate %}
+<div class="card {% if estimate.quota.would_exceed %}danger{% elif estimate.quota.warn %}warn{% else %}ok{% endif %}">
+  <h3>送信前の確認</h3>
+  <dl class="kv">
+    <dt>対象人数</dt><dd><strong>{{ estimate.target_count }} 人</strong></dd>
+    <dt>消費する通数</dt><dd><strong>{{ estimate.planned }} 通</strong>（1回 × {{ estimate.target_count }} 人）</dd>
+    <dt>今月の使用</dt><dd>{{ estimate.quota.used }} / {{ estimate.quota.limit|default:"上限なし" }} 通</dd>
+    <dt>送信後の残り</dt><dd>{% if estimate.quota.remaining_after != None %}{{ estimate.quota.remaining_after }} 通{% else %}—{% endif %}</dd>
+  </dl>
+  {% if estimate.quota_error %}<p class="tiny" style="margin:6px 0 0">{{ estimate.quota_error }}。<a href="?refresh=1">通数を再取得</a></p>{% endif %}
+  {% for w in estimate.warnings %}<div class="tiny" style="color:var(--danger);margin-top:4px">⚠ {{ w }}</div>{% endfor %}
+  {% if estimate.frequency.blocked %}<div class="tiny mt" style="color:var(--warn)">配信頻度の上限: {{ estimate.frequency.reasons|join:" / " }}（<a href="{% url 'accounts:stylist_settings' %}">上限は基本情報で変更</a>）</div>{% endif %}
+</div>
+
+{% if preview %}
+<details class="card flat"><summary class="tiny">対象のお客様（先頭 {{ preview|length }} 人）</summary><div class="chips mt">{% for c in preview %}<span class="chip">{{ c.name }}</span>{% endfor %}{% if estimate.target_count > preview|length %}<span class="chip">… 他 {{ estimate.target_count|add:"-30" }} 人</span>{% endif %}</div></details>
+{% endif %}
+
+<form method="post" action="{% url 'broadcasts:send' broadcast.pk %}" class="card" data-confirm="{{ estimate.target_count }}人に送信し、{{ estimate.planned }}通を消費します。送信しますか？">{% csrf_token %}
+  <div class="check"><input type="checkbox" name="confirm" value="1" id="confirm" required><label for="confirm">対象人数と消費通数を確認しました</label></div>
+  {% if estimate.frequency.blocked %}<div class="check"><input type="checkbox" name="force_frequency" value="1" id="force"><label for="force">頻度上限を超えて送る（ブロックが増えるおそれがあります）</label></div>{% endif %}
+  <button class="btn {% if not estimate.can_send %}disabled{% endif %}" {% if not estimate.can_send %}disabled{% endif %}>{{ estimate.target_count }}人に送信する（{{ estimate.planned }}通）</button>
+</form>
+<form method="post" action="{% url 'broadcasts:cancel' broadcast.pk %}" class="mt">{% csrf_token %}<button class="btn ghost">この配信を取り消す</button></form>
+{% else %}
+<div class="card">
+  <dl class="kv">
+    <dt>送信日時</dt><dd>{{ broadcast.sent_at|jadatetime }}</dd>
+    <dt>送信</dt><dd>{{ broadcast.sent_count }} 人{% if broadcast.failed_count %} ・ 失敗 {{ broadcast.failed_count }}{% endif %}</dd>
+    <dt>消費通数</dt><dd>{{ broadcast.sent_count }} 通（送信前の使用 {{ broadcast.quota_used_snapshot }} / {{ broadcast.quota_limit_snapshot|default:"∞" }}）</dd>
+    {% if broadcast.tracked_link %}<dt>リンククリック</dt><dd>{{ broadcast.tracked_link.click_count }} 回</dd>{% endif %}
+    {% if broadcast.error %}<dt>エラー</dt><dd class="tiny" style="color:var(--danger)">{{ broadcast.error }}</dd>{% endif %}
+  </dl>
+</div>
+{% if recipients %}<details class="card flat"><summary class="tiny">送信先</summary>{% for r in recipients %}<div class="tiny">{{ r.customer.name }} <span class="badge {% if r.status == 'sent' %}ok{% else %}danger{% endif %}">{{ r.get_status_display }}</span></div>{% endfor %}</details>{% endif %}
+{% endif %}
+{% endblock %}
